@@ -54,19 +54,8 @@ publish_html_content <- function(
 
   # Step 1: Read HTML file content
   message("Reading HTML file...")
-  html_content <- tryCatch(
-    {
-      lines <- readLines(html_path, warn = FALSE)
-      paste(lines, collapse = "\n")
-    },
-    error = function(e) {
-      rlang::abort(sprintf(
-        "Failed to read HTML file '%s': %s",
-        html_path,
-        conditionMessage(e)
-      ))
-    }
-  )
+  lines <- readLines(html_path, warn = FALSE)
+  html_content <- paste(lines, collapse = "\n")
   message(sprintf("  Read %d characters", nchar(html_content)))
 
   # Step 2: Create content item in lesson with HTML content

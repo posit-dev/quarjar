@@ -15,10 +15,6 @@ on:
         description: 'Content item title'
         required: true
         type: string
-      api-key:
-        description: 'Skilljar API key'
-        required: true
-        type: string
       base-url:
         description: 'Skilljar API base URL'
         required: false
@@ -53,21 +49,22 @@ jobs:
           install.packages(c("remotes", "httr2", "rlang", "jsonlite", "curl"))
         shell: Rscript {0}
 
-      - name: Install skilljar package
+      - name: Install quarjar package
         run: |
           remotes::install_local(".", force = TRUE, upgrade = "never")
         shell: Rscript {0}
 
       - name: Publish to Skilljar
+        id: publish
         env:
-          SKILLJAR_API_KEY: ${{ inputs.api-key }}
+          SKILLJAR_API_KEY: ${{ secrets.SKILLJAR_API_KEY }}
           SKILLJAR_LESSON_ID: ${{ inputs.lesson-id }}
           HTML_FILE: ${{ inputs.html-file }}
           TITLE: ${{ inputs.title }}
           BASE_URL: ${{ inputs.base-url }}
           ORDER: ${{ inputs.order }}
         run: |
-          library(skilljar)
+          library(quarjar)
 
           result <- publish_html_content(
             lesson_id = Sys.getenv("SKILLJAR_LESSON_ID"),

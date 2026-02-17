@@ -216,18 +216,30 @@ This repository includes a GitHub Action for automated publishing. See `.github/
 - `lesson-id`: (required) Target Skilljar lesson ID
 - `html-file`: (required) Path to HTML file to publish
 - `title`: (required) Content item title
-- `api-key`: (required) Skilljar API key (use secrets)
 - `base-url`: (optional) API base URL
 - `order`: (optional) Position in lesson
 
+**Note**: The workflow reads the API key from the `SKILLJAR_API_KEY` secret automatically. You must configure this secret in your repository settings.
+
 ### Example Workflow Usage
 
+To trigger the workflow manually:
+
 ```yaml
-name: Publish to Skilljar
+name: Publish Lesson
 
 on:
-  push:
-    branches: [main]
+  workflow_dispatch:
+    inputs:
+      lesson-id:
+        description: 'Skilljar lesson ID'
+        required: true
+      html-file:
+        description: 'Path to HTML file'
+        required: true
+      title:
+        description: 'Content item title'
+        required: true
 
 jobs:
   publish:
@@ -239,13 +251,21 @@ jobs:
         uses: quarto-dev/quarto-actions/setup@v2
       - run: quarto render content.qmd
 
-      - name: Publish to Skilljar
-        uses: ./.github/workflows/publish-to-skilljar.yml
+      - name: Trigger publish workflow
+        uses: actions/github-script@v7
         with:
-          lesson-id: ${{ secrets.SKILLJAR_LESSON_ID }}
-          html-file: "content.html"
-          title: "My Lesson Content"
-          api-key: ${{ secrets.SKILLJAR_API_KEY }}
+          script: |
+            await github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'publish-to-skilljar.yml',
+              ref: 'main',
+              inputs: {
+                'lesson-id': '${{ inputs.lesson-id }}',
+                'html-file': '${{ inputs.html-file }}',
+                'title': '${{ inputs.title }}'
+              }
+            })
 ```
 
 ## Authentication
