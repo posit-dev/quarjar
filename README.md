@@ -153,13 +153,20 @@ pkg <- create_web_package(
   title = "Module 1: Getting Started"
 )
 
-# Step 2: Create a lesson with the package
+# Step 2: Wait briefly for processing (web packages process asynchronously)
+Sys.sleep(2)
+
+# Step 3: Create a lesson with the package
+# If this fails, the package may still be processing - retry after a few moments
 lesson <- create_lesson_with_web_package(
   course_id = "abc123",
   lesson_title = "Module 1: Getting Started",
   web_package_id = pkg$id
 )
 ```
+
+**Note:** Web packages are processed asynchronously by Skilljar. If lesson creation fails
+immediately after creating the web package, wait a few moments and retry.
 
 ### Manage Web Packages
 

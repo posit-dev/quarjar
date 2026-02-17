@@ -24,8 +24,13 @@
 #'   }
 #'
 #' @details
-#' The web package type is determined by Skilljar after processing the ZIP file.
+#' **Asynchronous Processing:** Web packages are processed asynchronously by Skilljar.
+#' The package type is determined after processing the ZIP file.
 #' Supported types include SCORM packages and HTML5 content.
+#'
+#' If you create a lesson immediately after creating a web package, it may fail if
+#' processing hasn't completed. Consider using `get_web_package()` to check the
+#' processing state before creating lessons, or implement retry logic.
 #'
 #' The content_url must be publicly accessible for Skilljar to download.
 #' Consider using a temporary signed URL from a cloud storage service if needed.
@@ -59,6 +64,11 @@ create_web_package <- function(
   # Validate inputs
   if (missing(content_url) || is.null(content_url) || content_url == "") {
     rlang::abort("content_url is required")
+  }
+
+  # Validate URL format
+  if (!grepl("^https?://", content_url, ignore.case = TRUE)) {
+    rlang::abort("content_url must be a valid HTTP or HTTPS URL")
   }
 
   if (missing(title) || is.null(title) || title == "") {

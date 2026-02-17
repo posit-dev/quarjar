@@ -27,10 +27,10 @@ This file provides context for AI assistants (like Claude) working on the quarja
 
 4. **Web Package Management** (`R/web_packages.R`)
    - `create_web_package()` - Create web package from remote ZIP URL
-   - `upload_web_package()` - Upload local ZIP file as web package
    - `create_lesson_with_web_package()` - Create WEB_PACKAGE lesson
    - `get_web_package()`, `list_web_packages()`, `delete_web_package()`
    - Supports SCORM packages and HTML5 web content
+   - **Important:** Web packages are processed asynchronously by Skilljar
 
 5. **Course Helpers** (`R/courses.R`)
    - `get_course()`, `list_lessons()`, `get_next_lesson_order()`
@@ -39,7 +39,9 @@ This file provides context for AI assistants (like Claude) working on the quarja
    - `get_lesson()`, `list_content_items()`
 
 7. **Asset Management** (`R/assets.R`)
-   - `upload_asset()` - Upload files as assets (used by web package upload)
+   - `upload_asset()` - Upload files as assets (images, PDFs, videos)
+   - `get_asset()`, `list_assets()`, `delete_asset()` - Manage assets
+   - **Note:** Assets are separate from web packages
 
 8. **Error Handling** (`R/utils.R`)
    - `perform_request()` - Centralized error handling with formatted API responses
@@ -64,6 +66,17 @@ This file provides context for AI assistants (like Claude) working on the quarja
 4. **CLI Package for Messages**
    - Uses `cli::cli_alert_success()` instead of UTF-8 characters
    - Better cross-platform compatibility (Windows, etc.)
+
+5. **Web Package Processing**
+   - Web packages are created via `create_web_package()` with pre-hosted ZIP URLs
+   - Skilljar processes packages asynchronously
+   - Lesson creation may fail if attempted before processing completes
+   - No direct file upload - URLs must be publicly accessible
+
+6. **Assets vs Web Packages**
+   - Assets are for individual files (PDFs, images, videos) within lessons
+   - Web packages are standalone packaged content (SCORM, HTML5)
+   - These are separate features with different use cases
 
 ## API Structure
 

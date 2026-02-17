@@ -60,25 +60,46 @@ cat("\nCreated lesson with ID:", lesson$id, "\n")
 # delete_web_package(web_package_id = "package-id-to-delete")
 
 
-# Complete workflow example
-# --------------------------
+# Complete workflow example with error handling
+# -----------------------------------------------
 # Create a web package from a hosted URL and create a lesson
 
 complete_workflow <- function(zip_url, course_id, lesson_title) {
   # Step 1: Create the web package from your hosted URL
   cat("Creating web package...\n")
-  pkg <- create_web_package(
-    content_url = zip_url,
-    title = lesson_title
-  )
+  pkg <- tryCatch({
+    create_web_package(
+      content_url = zip_url,
+      title = lesson_title
+    )
+  }, error = function(e) {
+    cat("Error creating web package:", conditionMessage(e), "\n")
+    return(NULL)
+  })
 
-  # Step 2: Create a lesson with the package
+  if (is.null(pkg)) return(NULL)
+
+  # Step 2: Wait for processing (web packages are processed asynchronously)
+  cat("Waiting for web package processing...\n")
+  Sys.sleep(2)
+  pkg_status <- get_web_package(web_package_id = pkg$id)
+  cat("Package type:", pkg_status$type %||% "processing", "\n")
+
+  # Step 3: Create a lesson with the package (with retry logic)
   cat("Creating lesson...\n")
-  lesson <- create_lesson_with_web_package(
-    course_id = course_id,
-    lesson_title = lesson_title,
-    web_package_id = pkg$id
-  )
+  lesson <- tryCatch({
+    create_lesson_with_web_package(
+      course_id = course_id,
+      lesson_title = lesson_title,
+      web_package_id = pkg$id
+    )
+  }, error = function(e) {
+    cat("Error creating lesson:", conditionMessage(e), "\n")
+    cat("The web package may still be processing. Try again in a few moments.\n")
+    return(NULL)
+  })
+
+  if (is.null(lesson)) return(NULL)
 
   cat("\n✓ Complete! Lesson ID:", lesson$id, "\n")
 

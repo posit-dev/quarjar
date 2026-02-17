@@ -45,8 +45,13 @@ The ZIP file can contain HTML5 content, SCORM packages, or other web-based learn
 Skilljar will download and re-host the content.
 }
 \details{
-The web package type is determined by Skilljar after processing the ZIP file.
+\strong{Asynchronous Processing:} Web packages are processed asynchronously by Skilljar.
+The package type is determined after processing the ZIP file.
 Supported types include SCORM packages and HTML5 content.
+
+If you create a lesson immediately after creating a web package, it may fail if
+processing hasn't completed. Consider using \code{get_web_package()} to check the
+processing state before creating lessons, or implement retry logic.
 
 The content_url must be publicly accessible for Skilljar to download.
 Consider using a temporary signed URL from a cloud storage service if needed.
