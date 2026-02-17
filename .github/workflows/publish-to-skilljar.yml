@@ -1,0 +1,92 @@
+name: Publish to Skilljar
+
+on:
+  workflow_dispatch:
+    inputs:
+      lesson-id:
+        description: 'Skilljar lesson ID'
+        required: true
+        type: string
+      html-file:
+        description: 'Path to HTML file to publish'
+        required: true
+        type: string
+      title:
+        description: 'Content item title'
+        required: true
+        type: string
+      api-key:
+        description: 'Skilljar API key'
+        required: true
+        type: string
+      base-url:
+        description: 'Skilljar API base URL'
+        required: false
+        type: string
+        default: 'https://api.skilljar.com'
+      order:
+        description: 'Position in lesson (0 = first)'
+        required: false
+        type: number
+        default: 0
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup R
+        uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: 'release'
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libcurl4-openssl-dev
+
+      - name: Install R dependencies
+        run: |
+          install.packages(c("remotes", "httr2", "rlang", "jsonlite", "curl"))
+        shell: Rscript {0}
+
+      - name: Install skilljar package
+        run: |
+          remotes::install_local(".", force = TRUE, upgrade = "never")
+        shell: Rscript {0}
+
+      - name: Publish to Skilljar
+        env:
+          SKILLJAR_API_KEY: ${{ inputs.api-key }}
+          SKILLJAR_LESSON_ID: ${{ inputs.lesson-id }}
+          HTML_FILE: ${{ inputs.html-file }}
+          TITLE: ${{ inputs.title }}
+          BASE_URL: ${{ inputs.base-url }}
+          ORDER: ${{ inputs.order }}
+        run: |
+          library(skilljar)
+
+          result <- publish_html_content(
+            lesson_id = Sys.getenv("SKILLJAR_LESSON_ID"),
+            html_path = Sys.getenv("HTML_FILE"),
+            title = Sys.getenv("TITLE"),
+            api_key = Sys.getenv("SKILLJAR_API_KEY"),
+            order = as.numeric(Sys.getenv("ORDER")),
+            base_url = Sys.getenv("BASE_URL")
+          )
+
+          cat("::notice::Content item created with ID:", result$id, "\n")
+          cat("content_item_id=", result$id, "\n", sep = "", file = Sys.getenv("GITHUB_OUTPUT"), append = TRUE)
+        shell: Rscript {0}
+
+      - name: Summary
+        run: |
+          echo "### ✅ Published to Skilljar" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Lesson ID**: ${{ inputs.lesson-id }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Title**: ${{ inputs.title }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **File**: ${{ inputs.html-file }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Content Item ID**: ${{ steps.publish.outputs.content_item_id }}" >> $GITHUB_STEP_SUMMARY

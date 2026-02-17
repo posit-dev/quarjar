@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Skilljar Content</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 40px auto;
+            padding: 20px;
+            line-height: 1.6;
+            color: #333;
+        }
+        h1 {
+            color: #0066cc;
+            border-bottom: 2px solid #0066cc;
+            padding-bottom: 10px;
+        }
+        .callout {
+            background: #f0f7ff;
+            border-left: 4px solid #0066cc;
+            padding: 15px;
+            margin: 20px 0;
+        }
+        code {
+            background: #f5f5f5;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+        pre {
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>Welcome to Quarjar Content Publishing</h1>
+
+    <p>This is a test HTML document for the <strong>quarjar</strong> R package.</p>
+
+    <div class="callout">
+        <strong>📘 Note:</strong> This content was published using the quarjar R package,
+        which provides automated tools for publishing Quarto-rendered HTML to Skilljar lessons.
+    </div>
+
+    <h2>Features</h2>
+
+    <ul>
+        <li>Simple API for publishing HTML content</li>
+        <li>Automatic asset upload and content item creation</li>
+        <li>GitHub Actions integration for CI/CD workflows</li>
+        <li>Built on httr2 for reliable HTTP requests</li>
+    </ul>
+
+    <h2>Example Usage</h2>
+
+    <pre><code>library(quarjar)
+
+publish_html_content(
+  lesson_id = "12345",
+  html_path = "content.html",
+  title = "My Lesson",
+  api_key = Sys.getenv("SKILLJAR_API_KEY")
+)</code></pre>
+
+    <h2>Next Steps</h2>
+
+    <ol>
+        <li>Set your <code>SKILLJAR_API_KEY</code> environment variable</li>
+        <li>Identify your target lesson ID</li>
+        <li>Render your Quarto document to HTML</li>
+        <li>Run the publish function</li>
+    </ol>
+
+    <p><em>Happy publishing! 🚀</em></p>
+</body>
+</html>

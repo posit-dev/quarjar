@@ -1,0 +1,10 @@
+^.*\.Rproj$
+^\.Rproj\.user$
+^\.github$
+^docs$
+^examples$
+^README\.Rmd$
+^LICENSE\.md$
+^\.git$
+^\.gitignore$
+^\.env$
