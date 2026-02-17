@@ -20,9 +20,10 @@ remotes::install_github("posit-dev/quarjar")
 Skilljar has different lesson types. To publish HTML content items, you must use a **MODULAR** lesson type.
 
 - **MODULAR** - Can contain multiple content items (use this for publishing HTML)
+- **WEB_PACKAGE** - For SCORM packages and HTML5 web content (see Web Packages section)
 - **ASSET** - Single asset (video, PDF, etc.)
 - **HTML** - Single HTML content directly on lesson
-- Other types: QUIZ, WEB_PACKAGE, VILT, SECTION
+- Other types: QUIZ, VILT, SECTION
 
 ### Quick Start: Create Lesson and Publish Content
 
@@ -112,7 +113,70 @@ publish_html_content(
 )
 ```
 
+## Web Packages (SCORM & HTML5)
+
+For SCORM packages or standalone HTML5 web content, you need to host your ZIP file on a publicly accessible URL, then create the web package:
+
+```r
+library(quarjar)
+
+# Your ZIP file must be hosted on a publicly accessible URL
+# (e.g., on your own web server, CDN, or cloud storage)
+pkg <- create_web_package(
+  content_url = "https://example.com/my-scorm-package.zip",
+  title = "Introduction to R Programming"
+)
+
+cat("Web package ID:", pkg$id, "\n")
+```
+
+### Create a Lesson with Web Package
+
+```r
+# Create a WEB_PACKAGE lesson associated with your uploaded package
+lesson <- create_lesson_with_web_package(
+  course_id = "your-course-id",
+  lesson_title = "Module 1: Introduction",
+  web_package_id = pkg$id
+)
+```
+
+### Complete Workflow
+
+```r
+# Create web package and lesson
+# Note: Your ZIP must already be hosted at a publicly accessible URL
+
+# Step 1: Create the web package from your hosted URL
+pkg <- create_web_package(
+  content_url = "https://example.com/module1.zip",
+  title = "Module 1: Getting Started"
+)
+
+# Step 2: Create a lesson with the package
+lesson <- create_lesson_with_web_package(
+  course_id = "abc123",
+  lesson_title = "Module 1: Getting Started",
+  web_package_id = pkg$id
+)
+```
+
+### Manage Web Packages
+
+```r
+# List all web packages
+packages <- list_web_packages(page = 1, page_size = 20)
+
+# Get details for a specific package (includes download URL)
+pkg_details <- get_web_package(web_package_id = "pkg123")
+
+# Delete a package (only if not associated with lessons)
+delete_web_package(web_package_id = "pkg123")
+```
+
 ## Functions
+
+### HTML Content Functions
 
 ### `create_lesson_with_content()`
 
@@ -195,6 +259,73 @@ Lower-level function to upload a file as an asset.
 - `base_url`: API base URL (optional)
 
 **Returns:** The asset ID as a character string.
+
+### Web Package Functions
+
+### `create_web_package()`
+
+Create a web package from a remote ZIP URL.
+
+**Parameters:**
+- `content_url`: URL to remotely hosted ZIP file
+- `title`: Web package title
+- `redirect_on_completion`: Redirect on completion (default: TRUE)
+- `sync_on_completion`: Sync on completion (default: FALSE)
+- `api_key`: Skilljar API key
+- `base_url`: API base URL (optional)
+
+**Returns:** List with web package details including ID and type.
+
+### `create_lesson_with_web_package()`
+
+Create a WEB_PACKAGE type lesson with an existing web package.
+
+**Parameters:**
+- `course_id`: Course ID
+- `lesson_title`: Lesson title
+- `web_package_id`: ID of existing web package
+- `description`: Optional lesson description
+- `order`: Position in course (auto-detected if NULL)
+- `api_key`: Skilljar API key
+- `base_url`: API base URL (optional)
+
+**Returns:** List with lesson details.
+
+### `get_web_package()`
+
+Get details for a specific web package.
+
+**Parameters:**
+- `web_package_id`: Web package ID
+- `api_key`: Skilljar API key
+- `base_url`: API base URL (optional)
+
+**Returns:** List including download URL (valid for 1 hour).
+
+### `list_web_packages()`
+
+List all web packages in your organization.
+
+**Parameters:**
+- `page`: Page number (default: 1)
+- `page_size`: Results per page (default: 20)
+- `api_key`: Skilljar API key
+- `base_url`: API base URL (optional)
+
+**Returns:** Paginated list of web packages.
+
+### `delete_web_package()`
+
+Delete a web package (only if not associated with lessons).
+
+**Parameters:**
+- `web_package_id`: Web package ID
+- `api_key`: Skilljar API key
+- `base_url`: API base URL (optional)
+
+**Returns:** NULL on success.
+
+### Utility Functions
 
 ### `skilljar_request()`
 

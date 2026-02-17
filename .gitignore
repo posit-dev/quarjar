@@ -5,3 +5,4 @@
 *.Rproj
 .DS_Store
 .env
+docs/skilljar_api.yml
