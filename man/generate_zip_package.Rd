@@ -39,12 +39,13 @@ This function performs the following steps:
 \item Outputs the rendered HTML as "index.html" in a staging directory
 named "_\if{html}{\out{<filename>}}" (e.g., "_lesson1" for "lesson1.qmd")
 \item Creates a ZIP file containing the rendered output directory
-\item Cleans up the staging directory after successful ZIP creation
+\item Cleans up the staging directory after successful ZIP creation or rendering failure
 \item Returns the absolute path to the ZIP file
 }
 
 The function uses \code{withr::with_dir()} to safely manage working directory
-changes, ensuring the working directory is always restored even if errors occur.
+changes during ZIP creation (when calling \code{utils::zip()}), ensuring the
+working directory is always restored even if errors occur.
 
 By default, both the staging directory and the ZIP file are created
 in the same directory as the source .qmd file. This can be changed using the
@@ -59,9 +60,8 @@ The output directory structure ensures that when the ZIP is extracted,
 
 The generated ZIP file can be manually uploaded to a web server or cloud storage,
 and the resulting URL can be used to create a Skilljar web package lesson.
-For guidance on uploading to hosting services and configuring Skilljar,
-see the package README (accessible via \code{README.md} in the package
-installation directory or online at the package repository).
+For guidance on uploading to a hosting service and configuring Skilljar,
+see the package README (\code{README.md}).
 }
 \section{Dependencies}{
 

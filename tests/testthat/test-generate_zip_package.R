@@ -32,16 +32,19 @@ test_that("generate_zip_package creates zip file in same directory as .qmd", {
   tmp_dir <- normalizePath(tempdir(), mustWork = TRUE)
   tmp_qmd <- file.path(tmp_dir, "test_lesson.qmd")
 
-  writeLines(c(
-    "---",
-    "title: Test Lesson",
-    "format: html",
-    "---",
-    "",
-    "# Introduction",
-    "",
-    "This is a test lesson."
-  ), tmp_qmd)
+  writeLines(
+    c(
+      "---",
+      "title: Test Lesson",
+      "format: html",
+      "---",
+      "",
+      "# Introduction",
+      "",
+      "This is a test lesson."
+    ),
+    tmp_qmd
+  )
 
   # Generate zip package
   result <- generate_zip_package(tmp_qmd, quiet = TRUE)
@@ -58,7 +61,11 @@ test_that("generate_zip_package creates zip file in same directory as .qmd", {
   temp_extract <- file.path(tmp_dir, "extract_test")
   dir.create(temp_extract)
   unzip(result, exdir = temp_extract)
-  expect_true(file.exists(file.path(temp_extract, "_test_lesson", "index.html")))
+  expect_true(file.exists(file.path(
+    temp_extract,
+    "_test_lesson",
+    "index.html"
+  )))
 
   # Clean up
   unlink(result)
@@ -73,14 +80,17 @@ test_that("generate_zip_package returns absolute zip file path invisibly", {
   tmp_dir <- normalizePath(tempdir(), mustWork = TRUE)
   tmp_qmd <- file.path(tmp_dir, "test_return.qmd")
 
-  writeLines(c(
-    "---",
-    "title: Test",
-    "format: html",
-    "---",
-    "",
-    "Test content"
-  ), tmp_qmd)
+  writeLines(
+    c(
+      "---",
+      "title: Test",
+      "format: html",
+      "---",
+      "",
+      "Test content"
+    ),
+    tmp_qmd
+  )
 
   # Test that result is returned invisibly
   result <- withVisible(generate_zip_package(tmp_qmd, quiet = TRUE))
@@ -101,14 +111,17 @@ test_that("generate_zip_package respects overwrite parameter", {
   tmp_dir <- tempdir()
   tmp_qmd <- file.path(tmp_dir, "test_overwrite.qmd")
 
-  writeLines(c(
-    "---",
-    "title: Test",
-    "format: html",
-    "---",
-    "",
-    "Test"
-  ), tmp_qmd)
+  writeLines(
+    c(
+      "---",
+      "title: Test",
+      "format: html",
+      "---",
+      "",
+      "Test"
+    ),
+    tmp_qmd
+  )
 
   # First creation should work
   result1 <- generate_zip_package(tmp_qmd, quiet = TRUE, overwrite = TRUE)
@@ -136,14 +149,17 @@ test_that("generate_zip_package creates correct output directory name", {
   tmp_dir <- normalizePath(tempdir(), mustWork = TRUE)
   tmp_qmd <- file.path(tmp_dir, "my_lesson.qmd")
 
-  writeLines(c(
-    "---",
-    "title: My Lesson",
-    "format: html",
-    "---",
-    "",
-    "Content"
-  ), tmp_qmd)
+  writeLines(
+    c(
+      "---",
+      "title: My Lesson",
+      "format: html",
+      "---",
+      "",
+      "Content"
+    ),
+    tmp_qmd
+  )
 
   result <- generate_zip_package(tmp_qmd, quiet = TRUE)
 
@@ -166,16 +182,19 @@ test_that("generate_zip_package creates index.html at root", {
   tmp_dir <- tempdir()
   tmp_qmd <- file.path(tmp_dir, "test_index.qmd")
 
-  writeLines(c(
-    "---",
-    "title: Index Test",
-    "format: html",
-    "---",
-    "",
-    "# Test Content",
-    "",
-    "This should be in index.html"
-  ), tmp_qmd)
+  writeLines(
+    c(
+      "---",
+      "title: Index Test",
+      "format: html",
+      "---",
+      "",
+      "# Test Content",
+      "",
+      "This should be in index.html"
+    ),
+    tmp_qmd
+  )
 
   result <- generate_zip_package(tmp_qmd, quiet = TRUE)
 
@@ -188,9 +207,10 @@ test_that("generate_zip_package creates index.html at root", {
   expect_true(file.exists(file.path(temp_extract, "_test_index", "index.html")))
 
   # Read the HTML and verify it contains our content
+  # Suppress warning about missing final newline in HTML files
   html_content <- readLines(
     file.path(temp_extract, "_test_index", "index.html"),
-    warn = FALSE  # Suppress warning about missing final newline
+    warn = FALSE
   )
   expect_true(any(grepl("Test Content", html_content, ignore.case = TRUE)))
 
@@ -207,14 +227,17 @@ test_that("generate_zip_package handles quiet mode", {
   tmp_dir <- tempdir()
   tmp_qmd <- file.path(tmp_dir, "test_quiet.qmd")
 
-  writeLines(c(
-    "---",
-    "title: Quiet Test",
-    "format: html",
-    "---",
-    "",
-    "Test"
-  ), tmp_qmd)
+  writeLines(
+    c(
+      "---",
+      "title: Quiet Test",
+      "format: html",
+      "---",
+      "",
+      "Test"
+    ),
+    tmp_qmd
+  )
 
   # Test that quiet mode doesn't error (but may show cli messages)
   result <- expect_no_error(
@@ -236,17 +259,24 @@ test_that("generate_zip_package respects custom output_dir", {
   tmp_qmd <- file.path(tmp_dir, "test_custom.qmd")
   custom_output <- file.path(tmp_dir, "custom_output")
 
-  writeLines(c(
-    "---",
-    "title: Custom Output Test",
-    "format: html",
-    "---",
-    "",
-    "Test content"
-  ), tmp_qmd)
+  writeLines(
+    c(
+      "---",
+      "title: Custom Output Test",
+      "format: html",
+      "---",
+      "",
+      "Test content"
+    ),
+    tmp_qmd
+  )
 
   # Generate with custom output directory
-  result <- generate_zip_package(tmp_qmd, output_dir = custom_output, quiet = TRUE)
+  result <- generate_zip_package(
+    tmp_qmd,
+    output_dir = custom_output,
+    quiet = TRUE
+  )
 
   # Check that zip file was created in custom directory
   expect_true(file.exists(result))
@@ -274,14 +304,17 @@ test_that("generate_zip_package creates output_dir if it doesn't exist", {
     unlink(new_output, recursive = TRUE)
   }
 
-  writeLines(c(
-    "---",
-    "title: Create Dir Test",
-    "format: html",
-    "---",
-    "",
-    "Test"
-  ), tmp_qmd)
+  writeLines(
+    c(
+      "---",
+      "title: Create Dir Test",
+      "format: html",
+      "---",
+      "",
+      "Test"
+    ),
+    tmp_qmd
+  )
 
   # Generate with non-existent output directory
   result <- generate_zip_package(tmp_qmd, output_dir = new_output, quiet = TRUE)
@@ -303,20 +336,25 @@ test_that("generate_zip_package errors when zip creation fails", {
   tmp_dir <- normalizePath(tempdir(), mustWork = TRUE)
   tmp_qmd <- file.path(tmp_dir, "test_zip_fail.qmd")
 
-  writeLines(c(
-    "---",
-    "title: Zip Fail Test",
-    "format: html",
-    "---",
-    "",
-    "Test"
-  ), tmp_qmd)
+  writeLines(
+    c(
+      "---",
+      "title: Zip Fail Test",
+      "format: html",
+      "---",
+      "",
+      "Test"
+    ),
+    tmp_qmd
+  )
 
   staging_dir <- file.path(tmp_dir, "_test_zip_fail")
 
   # Ensure cleanup happens even if test fails
-  withr::defer(unlink(staging_dir, recursive = TRUE))
-  withr::defer(unlink(tmp_qmd))
+  withr::defer({
+    unlink(staging_dir, recursive = TRUE)
+    unlink(tmp_qmd)
+  })
 
   # Mock the zip function to fail
   with_mocked_bindings(
@@ -346,31 +384,36 @@ test_that("generate_zip_package error message includes specific exit codes", {
   tmp_dir <- normalizePath(tempdir(), mustWork = TRUE)
   tmp_qmd <- file.path(tmp_dir, "test_exit_codes.qmd")
 
-  writeLines(c(
-    "---",
-    "title: Exit Code Test",
-    "format: html",
-    "---",
-    "",
-    "Test"
-  ), tmp_qmd)
+  writeLines(
+    c(
+      "---",
+      "title: Exit Code Test",
+      "format: html",
+      "---",
+      "",
+      "Test"
+    ),
+    tmp_qmd
+  )
 
-  staging_dir <- file.path(tmp_dir, "_test_exit_codes")
   expected_zip <- file.path(tmp_dir, "test_exit_codes.zip")
-
-  # Ensure cleanup happens even if test fails
-  withr::defer({
-    if (dir.exists(staging_dir)) {
-      unlink(staging_dir, recursive = TRUE)
-    }
-    unlink(tmp_qmd)
-  })
+  # Staging directory path matches function's naming convention
+  # (see temp_output_dir in generate_zip_package.R)
+  staging_dir <- file.path(tmp_dir, "_test_exit_codes")
 
   # Test multiple exit codes
   exit_codes <- c(2, 127)
   for (code in exit_codes) {
+    # Ensure cleanup happens even if test fails
+    withr::defer({
+      unlink(staging_dir, recursive = TRUE)
+      unlink(tmp_qmd)
+    })
+
     with_mocked_bindings(
-      zip = function(...) { code },
+      zip = function(...) {
+        code
+      },
       {
         error <- expect_error(
           generate_zip_package(tmp_qmd, quiet = TRUE),
@@ -381,6 +424,8 @@ test_that("generate_zip_package error message includes specific exit codes", {
         error_msg <- conditionMessage(error)
         expect_match(error_msg, paste0("Exit code: ", code))
         expect_match(error_msg, "Zip file:")
+        expect_match(error_msg, basename(expected_zip))
+        expect_false(file.exists(expected_zip))
 
         # Verify staging directory is preserved for debugging
         expect_true(dir.exists(staging_dir))
@@ -388,10 +433,8 @@ test_that("generate_zip_package error message includes specific exit codes", {
       }
     )
 
-    # Clean up staging directory between tests
-    if (dir.exists(staging_dir)) {
-      unlink(staging_dir, recursive = TRUE)
-    }
+    # Clean up staging directory for next iteration
+    unlink(staging_dir, recursive = TRUE)
   }
 })
 
@@ -403,14 +446,17 @@ test_that("generate_zip_package handles rendering failure gracefully", {
   tmp_qmd <- file.path(tmp_dir, "test_render_fail.qmd")
 
   # Create a Quarto document with invalid YAML that will fail to render
-  writeLines(c(
-    "---",
-    "title: Render Fail Test",
-    "format: this_is_not_a_valid_format_xyz123",
-    "---",
-    "",
-    "Content"
-  ), tmp_qmd)
+  writeLines(
+    c(
+      "---",
+      "title: Render Fail Test",
+      "format: this_is_not_a_valid_format_xyz123",
+      "---",
+      "",
+      "Content"
+    ),
+    tmp_qmd
+  )
 
   # Expect an error when rendering fails
   expect_error(
@@ -430,28 +476,34 @@ test_that("generate_zip_package cleans up staging dir when quarto_render fails",
   skip_if(quarto::quarto_path() == "", "Quarto CLI not installed")
 
   original_wd <- getwd()
+  expect_true(nzchar(original_wd))
 
   tmp_dir <- normalizePath(tempdir(), mustWork = TRUE)
   tmp_qmd <- file.path(tmp_dir, "test_render_mock_fail.qmd")
 
-  writeLines(c(
-    "---",
-    "title: Mock Render Fail Test",
-    "format: html",
-    "---",
-    "",
-    "Test content"
-  ), tmp_qmd)
+  writeLines(
+    c(
+      "---",
+      "title: Mock Render Fail Test",
+      "format: html",
+      "---",
+      "",
+      "Test content"
+    ),
+    tmp_qmd
+  )
 
+  # Staging directory path matches function's naming convention (see temp_output_dir in generate_zip_package.R)
   staging_dir <- file.path(tmp_dir, "_test_render_mock_fail")
 
-  # Ensure cleanup happens even if test fails
+  # Ensure test cleanup happens even if test fails
   withr::defer(unlink(tmp_qmd))
+  # Note: staging_dir cleanup is verified as part of the test, not deferred
 
   # Mock quarto_render to create staging directory then fail
   with_mocked_bindings(
     quarto_render = function(...) {
-      # Create staging directory to simulate partial rendering
+      # Create staging directory to ensure cleanup is tested
       dir.create(staging_dir, recursive = TRUE)
       stop("Mocked rendering failure")
     },
@@ -479,16 +531,19 @@ test_that("generate_zip_package handles filenames with spaces", {
   # Create a filename with spaces
   tmp_qmd <- file.path(tmp_dir, "test file with spaces.qmd")
 
-  writeLines(c(
-    "---",
-    "title: Test Spaces",
-    "format: html",
-    "---",
-    "",
-    "# Content",
-    "",
-    "Testing filenames with spaces."
-  ), tmp_qmd)
+  writeLines(
+    c(
+      "---",
+      "title: Test Spaces",
+      "format: html",
+      "---",
+      "",
+      "# Content",
+      "",
+      "Testing filenames with spaces."
+    ),
+    tmp_qmd
+  )
 
   # Generate zip package
   result <- generate_zip_package(tmp_qmd, quiet = TRUE)
@@ -505,7 +560,11 @@ test_that("generate_zip_package handles filenames with spaces", {
   temp_extract <- file.path(tmp_dir, "extract_spaces_test")
   dir.create(temp_extract)
   unzip(result, exdir = temp_extract)
-  expect_true(file.exists(file.path(temp_extract, "_test file with spaces", "index.html")))
+  expect_true(file.exists(file.path(
+    temp_extract,
+    "_test file with spaces",
+    "index.html"
+  )))
 
   # Clean up
   unlink(result)
@@ -523,23 +582,33 @@ test_that("generate_zip_package handles directory paths with spaces", {
   if (!dir.exists(dir_with_spaces)) {
     dir.create(dir_with_spaces)
   }
-  withr::defer(unlink(dir_with_spaces, recursive = TRUE))
 
   tmp_qmd <- file.path(dir_with_spaces, "test_lesson.qmd")
 
-  writeLines(c(
-    "---",
-    "title: Test Spaces in Path",
-    "format: html",
-    "---",
-    "",
-    "# Content",
-    "",
-    "Testing directory paths with spaces."
-  ), tmp_qmd)
+  writeLines(
+    c(
+      "---",
+      "title: Test Spaces in Path",
+      "format: html",
+      "---",
+      "",
+      "# Content",
+      "",
+      "Testing directory paths with spaces."
+    ),
+    tmp_qmd
+  )
 
   # Generate zip package
   result <- generate_zip_package(tmp_qmd, quiet = TRUE)
+
+  # Ensure cleanup happens even if test fails
+  temp_extract <- file.path(tmp_dir, "extract_spaces_dir_test")
+  withr::defer({
+    unlink(result)
+    unlink(temp_extract, recursive = TRUE)
+    unlink(dir_with_spaces, recursive = TRUE)
+  })
 
   # Check that zip file was created
   expect_true(file.exists(result))
@@ -550,12 +619,15 @@ test_that("generate_zip_package handles directory paths with spaces", {
   expect_false(dir.exists(file.path(dir_with_spaces, "_test_lesson")))
 
   # Verify the zip contains the expected content
-  temp_extract <- file.path(tmp_dir, "extract_spaces_dir_test")
   dir.create(temp_extract)
   unzip(result, exdir = temp_extract)
-  expect_true(file.exists(file.path(temp_extract, "_test_lesson", "index.html")))
+  expect_true(file.exists(file.path(
+    temp_extract,
+    "_test_lesson",
+    "index.html"
+  )))
 
-  # Verify HTML content is correct
+  # Verify HTML content contains our rendered content
   html_content <- readLines(
     file.path(temp_extract, "_test_lesson", "index.html"),
     warn = FALSE
@@ -565,27 +637,26 @@ test_that("generate_zip_package handles directory paths with spaces", {
     html_content,
     ignore.case = TRUE
   )))
-
-  # Clean up
-  unlink(result)
-  unlink(temp_extract, recursive = TRUE)
 })
 
 test_that("generate_zip_package restores working directory after success", {
   skip_if_not_installed("quarto")
   skip_if(quarto::quarto_path() == "", "Quarto CLI not installed")
 
-  tmp_dir <- tempdir()
+  tmp_dir <- normalizePath(tempdir(), mustWork = TRUE)
   tmp_qmd <- file.path(tmp_dir, "test_wd_restore.qmd")
 
-  writeLines(c(
-    "---",
-    "title: Working Directory Test",
-    "format: html",
-    "---",
-    "",
-    "Test content"
-  ), tmp_qmd)
+  writeLines(
+    c(
+      "---",
+      "title: Working Directory Test",
+      "format: html",
+      "---",
+      "",
+      "Test content"
+    ),
+    tmp_qmd
+  )
 
   withr::defer({
     unlink(file.path(tmp_dir, "test_wd_restore.zip"))
@@ -609,17 +680,22 @@ test_that("generate_zip_package restores working directory after render failure"
   skip_if_not_installed("quarto")
   skip_if(quarto::quarto_path() == "", "Quarto CLI not installed")
 
-  tmp_dir <- tempdir()
+  tmp_dir <- normalizePath(tempdir(), mustWork = TRUE)
   tmp_qmd <- file.path(tmp_dir, "test_wd_render_fail.qmd")
+  # Staging directory path matches function's naming convention (see temp_output_dir in generate_zip_package.R)
+  staging_dir <- file.path(tmp_dir, "_test_wd_render_fail")
 
-  writeLines(c(
-    "---",
-    "title: Working Directory Render Fail Test",
-    "format: html",
-    "---",
-    "",
-    "Test content"
-  ), tmp_qmd)
+  writeLines(
+    c(
+      "---",
+      "title: Working Directory Render Fail Test",
+      "format: html",
+      "---",
+      "",
+      "Test content"
+    ),
+    tmp_qmd
+  )
 
   withr::defer(unlink(tmp_qmd))
 
@@ -641,27 +717,34 @@ test_that("generate_zip_package restores working directory after render failure"
 
   # Verify working directory was restored even after error
   expect_equal(getwd(), original_wd)
+
+  # Verify staging directory was cleaned up after render failure
+  expect_false(dir.exists(staging_dir))
 })
 
 test_that("generate_zip_package restores working directory after zip failure", {
   skip_if_not_installed("quarto")
   skip_if(quarto::quarto_path() == "", "Quarto CLI not installed")
 
-  tmp_dir <- tempdir()
+  tmp_dir <- normalizePath(tempdir(), mustWork = TRUE)
   tmp_qmd <- file.path(tmp_dir, "test_wd_error.qmd")
 
-  writeLines(c(
-    "---",
-    "title: Working Directory Error Test",
-    "format: html",
-    "---",
-    "",
-    "Test content"
-  ), tmp_qmd)
+  writeLines(
+    c(
+      "---",
+      "title: Working Directory Error Test",
+      "format: html",
+      "---",
+      "",
+      "Test content"
+    ),
+    tmp_qmd
+  )
 
+  # Staging directory path matches function's naming convention (see temp_output_dir in generate_zip_package.R)
   staging_dir <- file.path(tmp_dir, "_test_wd_error")
   withr::defer({
-    # Clean up staging directory (zip file was never created due to mocked failure)
+    # Staging dir preserved by function after zip failure, cleaned here
     unlink(staging_dir, recursive = TRUE)
     unlink(tmp_qmd)
   })

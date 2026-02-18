@@ -22,12 +22,12 @@
 #'   \item Outputs the rendered HTML as "index.html" in a staging directory
 #'     named "_<filename>" (e.g., "_lesson1" for "lesson1.qmd")
 #'   \item Creates a ZIP file containing the rendered output directory
-#'   \item Cleans up the staging directory after successful ZIP creation
+#'   \item Cleans up the staging directory when ZIP creation succeeds or rendering fails
 #'   \item Returns the absolute path to the ZIP file
 #' }
 #'
-#' The function uses \code{withr::with_dir()} to safely manage working directory
-#' changes, ensuring the working directory is always restored even if errors occur.
+#' The function uses \code{withr::with_dir()} around \code{utils::zip()} to safely
+#' manage working directory changes, ensuring the working directory is always restored even if errors occur.
 #'
 #' By default, both the staging directory and the ZIP file are created
 #' in the same directory as the source .qmd file. This can be changed using the
@@ -42,9 +42,8 @@
 #'
 #' The generated ZIP file can be manually uploaded to a web server or cloud storage,
 #' and the resulting URL can be used to create a Skilljar web package lesson.
-#' For guidance on uploading to hosting services and configuring Skilljar,
-#' see the package README (accessible via \code{README.md} in the package
-#' installation directory or online at the package repository).
+#' For guidance on uploading to a hosting service and configuring Skilljar,
+#' see the package README (\code{README.md}).
 #'
 #' @section Dependencies:
 #' This function requires the \code{quarto} R package and the Quarto CLI to be installed.
@@ -68,7 +67,12 @@
 #'
 #' @importFrom utils zip
 #' @export
-generate_zip_package <- function(qmd_path, output_dir = NULL, quiet = FALSE, overwrite = TRUE) {
+generate_zip_package <- function(
+  qmd_path,
+  output_dir = NULL,
+  quiet = FALSE,
+  overwrite = TRUE
+) {
   if (tools::file_ext(qmd_path) != "qmd") {
     stop("Input file must have a .qmd extension.")
   }
@@ -105,16 +109,19 @@ generate_zip_package <- function(qmd_path, output_dir = NULL, quiet = FALSE, ove
   zip_created <- FALSE
 
   # Register cleanup handler - will run on ANY exit (success or failure)
-  on.exit({
-    if (zip_created) {
-      # Clean up staging directory after successful zip creation
-      unlink(temp_output_dir, recursive = TRUE)
-    } else if (!rendering_succeeded) {
-      # Clean up staging directory if rendering operations failed
-      unlink(temp_output_dir, recursive = TRUE)
-    }
-    # If rendering operations succeeded but subsequent operations failed, preserve staging directory for debugging
-  }, add = TRUE)
+  on.exit(
+    {
+      if (zip_created) {
+        # Clean up staging directory after successful zip creation
+        unlink(temp_output_dir, recursive = TRUE)
+      } else if (!rendering_succeeded) {
+        # Clean up staging directory if rendering failed
+        unlink(temp_output_dir, recursive = TRUE)
+      }
+      # If rendering succeeded but subsequent operations failed, preserve staging directory for debugging
+    },
+    add = TRUE
+  )
 
   quarto::quarto_render(
     input = qmd_path,
@@ -130,7 +137,11 @@ generate_zip_package <- function(qmd_path, output_dir = NULL, quiet = FALSE, ove
   withr::with_dir(output_dir, {
     zip_extras <- if (quiet) "-q" else ""
     # Uses utils::zip() with default compression level (-6)
-    zip_exit_code <- zip(zipfile = basename(zip_file), files = basename(temp_output_dir), extras = zip_extras)
+    zip_exit_code <- zip(
+      zipfile = basename(zip_file),
+      files = basename(temp_output_dir),
+      extras = zip_extras
+    )
 
     # zip() returns 0 on success, non-zero error code on failure
     if (zip_exit_code != 0) {
