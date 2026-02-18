@@ -405,7 +405,17 @@ The `publish-quarto-to-skilljar.yml` workflow provides an end-to-end solution:
 
 #### Using in Your Repository
 
-Create `.github/workflows/publish-to-skilljar.yml`:
+**Recommended: Use the helper function**
+
+```r
+# Install the package
+remotes::install_github("posit-dev/quarjar")
+
+# Add the workflow to your repository
+quarjar::use_skilljar_workflow()
+```
+
+**Or manually create** `.github/workflows/publish-to-skilljar.yml`:
 
 ```yaml
 name: Publish to Skilljar

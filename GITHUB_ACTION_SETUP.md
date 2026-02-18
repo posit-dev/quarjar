@@ -58,16 +58,31 @@ Add your Skilljar API key as a repository secret:
 
 ### 3. Add the Workflow to Your Repository
 
-Create the workflow file in your repository:
+**Option A: Use the helper function (Recommended)**
 
-**Option A: Copy the workflow file directly**
+If you have the `quarjar` package installed:
+
+```r
+# Install if needed
+remotes::install_github("posit-dev/quarjar")
+
+# Add the workflow to your repository
+quarjar::use_skilljar_workflow()
+```
+
+This will:
+- Create `.github/workflows/publish-quarto-to-skilljar.yml`
+- Show you the next setup steps
+- Provide a link to this guide
+
+**Option B: Copy the workflow file manually**
 
 1. Create the directory `.github/workflows/` in your repository
 2. Copy the workflow file from this repository:
-   - Source: [`.github/workflows/publish-quarto-to-skilljar.yml`](.github/workflows/publish-quarto-to-skilljar.yml)
+   - Source: [`inst/workflows/publish-quarto-to-skilljar.yml`](inst/workflows/publish-quarto-to-skilljar.yml)
    - Destination: `.github/workflows/publish-quarto-to-skilljar.yml` in your repo
 
-**Option B: Create a reusable workflow reference**
+**Option C: Create a reusable workflow reference**
 
 Create `.github/workflows/publish-to-skilljar.yml` in your repository:
 
