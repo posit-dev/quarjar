@@ -2,6 +2,7 @@
 
 export(create_lesson)
 export(create_lesson_with_content)
+export(generate_zip_package)
 export(get_course)
 export(get_lesson)
 export(get_next_lesson_order)
@@ -10,3 +11,4 @@ export(list_lessons)
 export(publish_html_content)
 export(skilljar_request)
 export(upload_asset)
+importFrom(utils,zip)

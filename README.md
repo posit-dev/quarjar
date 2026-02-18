@@ -112,6 +112,31 @@ publish_html_content(
 )
 ```
 
+## Generating ZIP Packages
+
+### `generate_zip_package()`
+
+Render a Quarto document and package it as a ZIP file for upload as a web package.
+
+```r
+# Generate ZIP from Quarto document
+zip_path <- generate_zip_package("lesson.qmd")
+# Creates: "lesson.zip" containing rendered HTML
+```
+
+**Parameters:**
+- `qmd_path`: Path to the Quarto (.qmd) file
+- `quiet`: Suppress rendering messages (default: FALSE)
+- `overwrite`: Overwrite existing ZIP file (default: TRUE)
+
+**Returns:** Path to the created ZIP file (invisibly).
+
+**Workflow:**
+1. Renders the .qmd file to HTML
+2. Outputs to a temporary directory
+3. Creates a ZIP package
+4. Upload the ZIP to your server
+
 ## Functions
 
 ### `create_lesson_with_content()`

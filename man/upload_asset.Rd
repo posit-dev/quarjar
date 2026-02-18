@@ -13,7 +13,8 @@ upload_asset(
 \arguments{
 \item{file_path}{Character. Path to the file to upload.}
 
-\item{api_key}{Character. Skilljar API key for authentication.}
+\item{api_key}{Character. Skilljar API key for authentication.
+Default reads from SKILLJAR_API_KEY environment variable.}
 
 \item{base_url}{Character. Base URL for the Skilljar API.
 Default is "https://api.skilljar.com".}
@@ -23,12 +24,25 @@ Character. The asset ID of the uploaded file.
 }
 \description{
 Uploads a file as an asset to Skilljar and returns the asset ID.
+This is a utility function for uploading non-HTML content types or files
+that need to be referenced from within HTML content (images, PDFs, etc.).
+}
+\details{
+Note: For publishing HTML lesson content, use \code{publish_html_content()} instead,
+which directly embeds the HTML in a content item. This function is intended for
+uploading supporting assets or non-HTML file types.
 }
 \examples{
 \dontrun{
+# Upload an image asset
 asset_id <- upload_asset(
-  file_path = "content.html",
+  file_path = "images/diagram.png",
   api_key = Sys.getenv("SKILLJAR_API_KEY")
+)
+
+# Upload a PDF document
+pdf_id <- upload_asset(
+  file_path = "resources/reference.pdf"
 )
 }
 

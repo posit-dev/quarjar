@@ -31,7 +31,11 @@
 #' }
 #'
 #' @export
-upload_asset <- function(file_path, api_key = Sys.getenv("SKILLJAR_API_KEY"), base_url = "https://api.skilljar.com") {
+upload_asset <- function(
+  file_path,
+  api_key = Sys.getenv("SKILLJAR_API_KEY"),
+  base_url = "https://api.skilljar.com"
+) {
   if (!file.exists(file_path)) {
     rlang::abort(sprintf("File not found: %s", file_path))
   }
