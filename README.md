@@ -370,23 +370,87 @@ Creates a base httr2 request object configured for Skilljar API authentication.
 
 **Returns:** An httr2 request object.
 
-## GitHub Action
+## GitHub Actions
 
-This repository includes a GitHub Action for automated publishing. See `.github/workflows/publish-to-skilljar.yml` for the workflow definition.
+This repository includes GitHub Actions for automated publishing workflows.
 
-### Action Inputs
+### Automated Quarto to Skilljar Pipeline
 
+**📖 Full Setup Guide**: See [GITHUB_ACTION_SETUP.md](GITHUB_ACTION_SETUP.md) for complete setup instructions, troubleshooting, and advanced configuration.
+
+The `publish-quarto-to-skilljar.yml` workflow provides an end-to-end solution:
+
+1. ✅ Renders your Quarto document to HTML
+2. ✅ Packages it as a ZIP file with timestamped filename
+3. ✅ Publishes the ZIP to GitHub Pages (provides public URL)
+4. ✅ Creates a Skilljar web package from the GitHub Pages URL
+5. ✅ Creates a WEB_PACKAGE lesson in your course
+
+#### Quick Start
+
+**Required Secrets:**
+- `SKILLJAR_API_KEY` - Your Skilljar API key
+
+**Required Setup:**
+1. Enable GitHub Pages (Settings → Pages → Deploy from `gh-pages` branch)
+2. Add `SKILLJAR_API_KEY` secret (Settings → Secrets and variables → Actions)
+3. Set repository permissions to "Read and write" (Settings → Actions → General)
+
+**Workflow Inputs:**
+- `qmd-file`: Path to your Quarto (.qmd) file
+- `course-id`: Skilljar course ID
+- `lesson-title`: Title for the lesson in Skilljar
+- `package-title`: (optional) Title for the web package
+- `base-url`: (optional) Skilljar API base URL
+
+#### Using in Your Repository
+
+Create `.github/workflows/publish-to-skilljar.yml`:
+
+```yaml
+name: Publish to Skilljar
+
+on:
+  workflow_dispatch:
+    inputs:
+      qmd-file:
+        description: 'Path to Quarto file'
+        required: true
+        type: string
+      course-id:
+        description: 'Skilljar course ID'
+        required: true
+        type: string
+      lesson-title:
+        description: 'Lesson title'
+        required: true
+        type: string
+
+jobs:
+  publish:
+    uses: posit-dev/quarjar/.github/workflows/publish-quarto-to-skilljar.yml@main
+    with:
+      qmd-file: ${{ inputs.qmd-file }}
+      course-id: ${{ inputs.course-id }}
+      lesson-title: ${{ inputs.lesson-title }}
+    secrets:
+      SKILLJAR_API_KEY: ${{ secrets.SKILLJAR_API_KEY }}
+```
+
+### Legacy: Direct HTML Publishing
+
+The `publish-to-skilljar.yml` workflow publishes HTML content directly to existing MODULAR lessons.
+
+**Action Inputs:**
 - `lesson-id`: (required) Target Skilljar lesson ID
 - `html-file`: (required) Path to HTML file to publish
 - `title`: (required) Content item title
 - `base-url`: (optional) API base URL
 - `order`: (optional) Position in lesson
 
-**Note**: The workflow reads the API key from the `SKILLJAR_API_KEY` secret automatically. You must configure this secret in your repository settings.
+**Note**: For creating new lessons from Quarto documents, use the automated pipeline above.
 
-### Example Workflow Usage
-
-To trigger the workflow manually:
+### Old Example (Legacy)
 
 ```yaml
 name: Publish Lesson
