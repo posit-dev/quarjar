@@ -6,4 +6,4 @@
 .DS_Store
 .env
 examples/**
-
+docs/skilljar_api.yml
