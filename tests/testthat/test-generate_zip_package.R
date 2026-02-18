@@ -401,15 +401,15 @@ test_that("generate_zip_package error message includes specific exit codes", {
   # (see temp_output_dir in generate_zip_package.R)
   staging_dir <- file.path(tmp_dir, "_test_exit_codes")
 
+  # Ensure cleanup happens even if test fails
+  withr::defer({
+    unlink(staging_dir, recursive = TRUE)
+    unlink(tmp_qmd)
+  })
+
   # Test multiple exit codes
   exit_codes <- c(2, 127)
   for (code in exit_codes) {
-    # Ensure cleanup happens even if test fails
-    withr::defer({
-      unlink(staging_dir, recursive = TRUE)
-      unlink(tmp_qmd)
-    })
-
     with_mocked_bindings(
       zip = function(...) {
         code
