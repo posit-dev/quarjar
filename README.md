@@ -136,9 +136,6 @@ zip_path <- generate_zip_package("lesson.qmd")
 2. Outputs to a temporary directory
 3. Creates a ZIP package
 4. Upload the ZIP to your server
-5. Use the URL with `create_web_package()`
-
-See `examples/generate_zip_workflow.R` for complete examples.
 
 ## Functions
 

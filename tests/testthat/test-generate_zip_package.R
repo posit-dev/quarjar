@@ -1,4 +1,8 @@
 # Tests for generate_zip_package()
+#
+# Note: Previous versions of the documentation referenced non-existent functions
+# (create_web_package, upload_asset, create_lesson_with_content). These were
+# never implemented and have been removed from the documentation.
 
 test_that("generate_zip_package requires .qmd extension", {
   # Create a temporary file with wrong extension
@@ -184,7 +188,10 @@ test_that("generate_zip_package creates index.html at root", {
   expect_true(file.exists(file.path(temp_extract, "_test_index", "index.html")))
 
   # Read the HTML and verify it contains our content
-  html_content <- readLines(file.path(temp_extract, "_test_index", "index.html"), warn = FALSE)
+  html_content <- readLines(
+    file.path(temp_extract, "_test_index", "index.html"),
+    warn = FALSE  # Suppress warning about missing final newline
+  )
   expect_true(any(grepl("Test Content", html_content, ignore.case = TRUE)))
 
   # Clean up
@@ -305,11 +312,17 @@ test_that("generate_zip_package errors when zip creation fails", {
     "Test"
   ), tmp_qmd)
 
+  staging_dir <- file.path(tmp_dir, "_test_zip_fail")
+
+  # Ensure cleanup happens even if test fails
+  withr::defer(unlink(staging_dir, recursive = TRUE))
+  withr::defer(unlink(tmp_qmd))
+
   # Mock the zip function to fail
   with_mocked_bindings(
     zip = function(...) {
       # Return non-zero status to simulate failure
-      return(1)
+      1
     },
     {
       expect_error(
@@ -319,12 +332,67 @@ test_that("generate_zip_package errors when zip creation fails", {
     }
   )
 
-  # Clean up staging directory if it was created
-  staging_dir <- file.path(tmp_dir, "_test_zip_fail")
-  if (dir.exists(staging_dir)) {
-    unlink(staging_dir, recursive = TRUE)
+  # Verify that staging directory still exists after zip failure (preserved for debugging)
+  expect_true(dir.exists(staging_dir))
+
+  # Verify the staging directory contains the rendered content
+  expect_true(file.exists(file.path(staging_dir, "index.html")))
+})
+
+test_that("generate_zip_package error message includes specific exit codes", {
+  skip_if_not_installed("quarto")
+  skip_if(quarto::quarto_path() == "", "Quarto CLI not installed")
+
+  tmp_dir <- normalizePath(tempdir(), mustWork = TRUE)
+  tmp_qmd <- file.path(tmp_dir, "test_exit_codes.qmd")
+
+  writeLines(c(
+    "---",
+    "title: Exit Code Test",
+    "format: html",
+    "---",
+    "",
+    "Test"
+  ), tmp_qmd)
+
+  staging_dir <- file.path(tmp_dir, "_test_exit_codes")
+  expected_zip <- file.path(tmp_dir, "test_exit_codes.zip")
+
+  # Ensure cleanup happens even if test fails
+  withr::defer({
+    if (dir.exists(staging_dir)) {
+      unlink(staging_dir, recursive = TRUE)
+    }
+    unlink(tmp_qmd)
+  })
+
+  # Test multiple exit codes
+  exit_codes <- c(2, 127)
+  for (code in exit_codes) {
+    with_mocked_bindings(
+      zip = function(...) { code },
+      {
+        error <- expect_error(
+          generate_zip_package(tmp_qmd, quiet = TRUE),
+          "Failed to create zip file"
+        )
+
+        # Verify error message structure
+        error_msg <- conditionMessage(error)
+        expect_match(error_msg, paste0("Exit code: ", code))
+        expect_match(error_msg, "Zip file:")
+
+        # Verify staging directory is preserved for debugging
+        expect_true(dir.exists(staging_dir))
+        expect_true(file.exists(file.path(staging_dir, "index.html")))
+      }
+    )
+
+    # Clean up staging directory between tests
+    if (dir.exists(staging_dir)) {
+      unlink(staging_dir, recursive = TRUE)
+    }
   }
-  unlink(tmp_qmd)
 })
 
 test_that("generate_zip_package handles rendering failure gracefully", {
@@ -355,6 +423,52 @@ test_that("generate_zip_package handles rendering failure gracefully", {
 
   # Clean up
   unlink(tmp_qmd)
+})
+
+test_that("generate_zip_package cleans up staging dir when quarto_render fails", {
+  skip_if_not_installed("quarto")
+  skip_if(quarto::quarto_path() == "", "Quarto CLI not installed")
+
+  original_wd <- getwd()
+
+  tmp_dir <- normalizePath(tempdir(), mustWork = TRUE)
+  tmp_qmd <- file.path(tmp_dir, "test_render_mock_fail.qmd")
+
+  writeLines(c(
+    "---",
+    "title: Mock Render Fail Test",
+    "format: html",
+    "---",
+    "",
+    "Test content"
+  ), tmp_qmd)
+
+  staging_dir <- file.path(tmp_dir, "_test_render_mock_fail")
+
+  # Ensure cleanup happens even if test fails
+  withr::defer(unlink(tmp_qmd))
+
+  # Mock quarto_render to create staging directory then fail
+  with_mocked_bindings(
+    quarto_render = function(...) {
+      # Create staging directory to simulate partial rendering
+      dir.create(staging_dir, recursive = TRUE)
+      stop("Mocked rendering failure")
+    },
+    .package = "quarto",
+    {
+      expect_error(
+        generate_zip_package(tmp_qmd, quiet = TRUE),
+        "Mocked rendering failure"
+      )
+    }
+  )
+
+  # Verify working directory was restored
+  expect_equal(getwd(), original_wd)
+
+  # Verify staging directory was cleaned up after rendering failure
+  expect_false(dir.exists(staging_dir))
 })
 
 test_that("generate_zip_package handles filenames with spaces", {
@@ -397,4 +511,182 @@ test_that("generate_zip_package handles filenames with spaces", {
   unlink(result)
   unlink(temp_extract, recursive = TRUE)
   unlink(tmp_qmd)
+})
+
+test_that("generate_zip_package handles directory paths with spaces", {
+  skip_if_not_installed("quarto")
+  skip_if(quarto::quarto_path() == "", "Quarto CLI not installed")
+
+  tmp_dir <- normalizePath(tempdir(), mustWork = TRUE)
+  # Create a subdirectory with spaces
+  dir_with_spaces <- file.path(tmp_dir, "test dir with spaces")
+  if (!dir.exists(dir_with_spaces)) {
+    dir.create(dir_with_spaces)
+  }
+  withr::defer(unlink(dir_with_spaces, recursive = TRUE))
+
+  tmp_qmd <- file.path(dir_with_spaces, "test_lesson.qmd")
+
+  writeLines(c(
+    "---",
+    "title: Test Spaces in Path",
+    "format: html",
+    "---",
+    "",
+    "# Content",
+    "",
+    "Testing directory paths with spaces."
+  ), tmp_qmd)
+
+  # Generate zip package
+  result <- generate_zip_package(tmp_qmd, quiet = TRUE)
+
+  # Check that zip file was created
+  expect_true(file.exists(result))
+  expect_equal(basename(result), "test_lesson.zip")
+  expect_equal(dirname(result), normalizePath(dir_with_spaces, mustWork = TRUE))
+
+  # Check that staging directory was cleaned up
+  expect_false(dir.exists(file.path(dir_with_spaces, "_test_lesson")))
+
+  # Verify the zip contains the expected content
+  temp_extract <- file.path(tmp_dir, "extract_spaces_dir_test")
+  dir.create(temp_extract)
+  unzip(result, exdir = temp_extract)
+  expect_true(file.exists(file.path(temp_extract, "_test_lesson", "index.html")))
+
+  # Verify HTML content is correct
+  html_content <- readLines(
+    file.path(temp_extract, "_test_lesson", "index.html"),
+    warn = FALSE
+  )
+  expect_true(any(grepl(
+    "Testing directory paths with spaces",
+    html_content,
+    ignore.case = TRUE
+  )))
+
+  # Clean up
+  unlink(result)
+  unlink(temp_extract, recursive = TRUE)
+})
+
+test_that("generate_zip_package restores working directory after success", {
+  skip_if_not_installed("quarto")
+  skip_if(quarto::quarto_path() == "", "Quarto CLI not installed")
+
+  tmp_dir <- tempdir()
+  tmp_qmd <- file.path(tmp_dir, "test_wd_restore.qmd")
+
+  writeLines(c(
+    "---",
+    "title: Working Directory Test",
+    "format: html",
+    "---",
+    "",
+    "Test content"
+  ), tmp_qmd)
+
+  withr::defer({
+    unlink(file.path(tmp_dir, "test_wd_restore.zip"))
+    unlink(tmp_qmd)
+  })
+
+  # Capture working directory before function call
+  original_wd <- getwd()
+
+  # Call function
+  result <- generate_zip_package(tmp_qmd, quiet = TRUE)
+
+  # Verify working directory was restored
+  expect_equal(getwd(), original_wd)
+
+  # Verify zip was created successfully
+  expect_true(file.exists(result))
+})
+
+test_that("generate_zip_package restores working directory after render failure", {
+  skip_if_not_installed("quarto")
+  skip_if(quarto::quarto_path() == "", "Quarto CLI not installed")
+
+  tmp_dir <- tempdir()
+  tmp_qmd <- file.path(tmp_dir, "test_wd_render_fail.qmd")
+
+  writeLines(c(
+    "---",
+    "title: Working Directory Render Fail Test",
+    "format: html",
+    "---",
+    "",
+    "Test content"
+  ), tmp_qmd)
+
+  withr::defer(unlink(tmp_qmd))
+
+  # Capture working directory before function call
+  original_wd <- getwd()
+
+  # Mock quarto_render to fail
+  with_mocked_bindings(
+    quarto_render = function(...) stop("Rendering failed"),
+    .package = "quarto",
+    {
+      # Expect error from render failure
+      expect_error(
+        generate_zip_package(tmp_qmd, quiet = TRUE),
+        "Rendering failed"
+      )
+    }
+  )
+
+  # Verify working directory was restored even after error
+  expect_equal(getwd(), original_wd)
+})
+
+test_that("generate_zip_package restores working directory after zip failure", {
+  skip_if_not_installed("quarto")
+  skip_if(quarto::quarto_path() == "", "Quarto CLI not installed")
+
+  tmp_dir <- tempdir()
+  tmp_qmd <- file.path(tmp_dir, "test_wd_error.qmd")
+
+  writeLines(c(
+    "---",
+    "title: Working Directory Error Test",
+    "format: html",
+    "---",
+    "",
+    "Test content"
+  ), tmp_qmd)
+
+  staging_dir <- file.path(tmp_dir, "_test_wd_error")
+  withr::defer({
+    # Clean up staging directory (zip file was never created due to mocked failure)
+    unlink(staging_dir, recursive = TRUE)
+    unlink(tmp_qmd)
+  })
+
+  # Capture working directory before function call
+  original_wd <- getwd()
+
+  # Mock the zip function to fail inside withr::with_dir()
+  with_mocked_bindings(
+    zip = function(...) {
+      # Return non-zero status to simulate failure
+      1
+    },
+    {
+      # Expect error from zip failure
+      expect_error(
+        generate_zip_package(tmp_qmd, quiet = TRUE),
+        "Failed to create zip file"
+      )
+    }
+  )
+
+  # Verify working directory was restored even after error
+  expect_equal(getwd(), original_wd)
+
+  # Verify that staging directory was preserved for debugging (per documented behavior)
+  expect_true(dir.exists(staging_dir))
 })

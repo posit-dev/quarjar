@@ -26,21 +26,28 @@
 #'   \item Returns the absolute path to the ZIP file
 #' }
 #'
+#' The function uses \code{withr::with_dir()} to safely manage working directory
+#' changes, ensuring the working directory is always restored even if errors occur.
+#'
 #' By default, both the staging directory and the ZIP file are created
 #' in the same directory as the source .qmd file. This can be changed using the
 #' \code{output_dir} parameter.
 #'
+#' Cleanup behavior: The staging directory is automatically cleaned up when ZIP
+#' creation succeeds or when rendering fails. However, if rendering succeeds but
+#' ZIP creation fails, the staging directory is preserved for debugging purposes.
+#'
 #' The output directory structure ensures that when the ZIP is extracted,
 #' "index.html" is at the root level, which is required by most web package formats.
 #'
-#' The generated ZIP file can then be:
-#' \itemize{
-#'   \item Uploaded to a web server or cloud storage using \code{upload_asset()}
-#'   \item Used to create a Skilljar lesson with \code{create_lesson_with_content()}
-#' }
+#' The generated ZIP file can be manually uploaded to a web server or cloud storage,
+#' and the resulting URL can be used to create a Skilljar web package lesson.
+#' For guidance on uploading to hosting services and configuring Skilljar,
+#' see the package README (accessible via \code{README.md} in the package
+#' installation directory or online at the package repository).
 #'
 #' @section Dependencies:
-#' This function requires the \code{quarto} package and the Quarto CLI to be installed.
+#' This function requires the \code{quarto} R package and the Quarto CLI to be installed.
 #'
 #' @examples
 #' \dontrun{
@@ -57,25 +64,7 @@
 #'
 #' # Don't overwrite existing ZIP files
 #' zip_path <- generate_zip_package("lesson1.qmd", overwrite = FALSE)
-#'
-#' # Complete workflow: Generate ZIP and create lesson with content
-#' # Step 1: Generate the ZIP
-#' zip_path <- generate_zip_package("module1.qmd")
-#'
-#' # Step 2: Upload the asset to Skilljar
-#' asset <- upload_asset(zip_path, name = "Module 1 Content")
-#'
-#' # Step 3: Create lesson with the uploaded content
-#' lesson <- create_lesson_with_content(
-#'   course_id = 12345,
-#'   title = "Module 1: Introduction",
-#'   asset_id = asset$id
-#' )
 #' }
-#'
-#' @seealso
-#' \code{\link{upload_asset}} for uploading assets to Skilljar,
-#' \code{\link{create_lesson_with_content}} for creating lessons with content
 #'
 #' @importFrom utils zip
 #' @export
@@ -104,15 +93,28 @@ generate_zip_package <- function(qmd_path, output_dir = NULL, quiet = FALSE, ove
   file_name <- tools::file_path_sans_ext(basename(qmd_path))
   temp_output_dir <- file.path(output_dir, paste0("_", file_name))
 
-  # Register cleanup of temp directory to ensure it's removed even on error
-  on.exit(unlink(temp_output_dir, recursive = TRUE), add = TRUE)
-
   zip_file <- file.path(output_dir, paste0(file_name, ".zip"))
   if (!overwrite && file.exists(zip_file)) {
     cli::cli_abort(
       "Zip file already exists: {.file {zip_file}}. Use {.code overwrite = TRUE} to overwrite."
     )
   }
+
+  # Track whether rendering and zip creation succeeded for cleanup purposes
+  rendering_succeeded <- FALSE
+  zip_created <- FALSE
+
+  # Register cleanup handler - will run on ANY exit (success or failure)
+  on.exit({
+    if (zip_created) {
+      # Clean up staging directory after successful zip creation
+      unlink(temp_output_dir, recursive = TRUE)
+    } else if (!rendering_succeeded) {
+      # Clean up staging directory if rendering operations failed
+      unlink(temp_output_dir, recursive = TRUE)
+    }
+    # If rendering operations succeeded but subsequent operations failed, preserve staging directory for debugging
+  }, add = TRUE)
 
   quarto::quarto_render(
     input = qmd_path,
@@ -121,18 +123,29 @@ generate_zip_package <- function(qmd_path, output_dir = NULL, quiet = FALSE, ove
     quiet = quiet
   )
 
+  # Mark rendering as successful
+  rendering_succeeded <- TRUE
+
   # Change to output directory for zipping (so zip contains relative paths)
   withr::with_dir(output_dir, {
     zip_extras <- if (quiet) "-q" else ""
-    zip(zipfile = basename(zip_file), files = basename(temp_output_dir), extras = zip_extras)
+    # Uses utils::zip() with default compression level (-6)
+    zip_exit_code <- zip(zipfile = basename(zip_file), files = basename(temp_output_dir), extras = zip_extras)
+
+    # zip() returns 0 on success, non-zero error code on failure
+    if (zip_exit_code != 0) {
+      cli::cli_abort(
+        c(
+          "Failed to create zip file",
+          "x" = "Exit code: {zip_exit_code}",
+          "i" = "Zip file: {.file {zip_file}}"
+        )
+      )
+    }
   })
 
-  if (!file.exists(zip_file)) {
-    cli::cli_abort("Failed to create zip file: {.file {zip_file}}")
-  }
-
-  # Clean up the staging directory after successful zip creation
-  unlink(temp_output_dir, recursive = TRUE)
+  # Mark zip as successfully created (triggers cleanup in on.exit handler)
+  zip_created <- TRUE
 
   cli::cli_alert_success("Created zip file: {.file {zip_file}}")
   invisible(zip_file)
