@@ -33,14 +33,16 @@
 #' }
 #'
 #' @export
-create_lesson <- function(course_id,
-                          title,
-                          type = "MODULAR",
-                          api_key = Sys.getenv("SKILLJAR_API_KEY"),
-                          order = 0,
-                          description_html = "",
-                          optional = FALSE,
-                          base_url = "https://api.skilljar.com") {
+create_lesson <- function(
+  course_id,
+  title,
+  type = "MODULAR",
+  api_key = Sys.getenv("SKILLJAR_API_KEY"),
+  order = 0,
+  description_html = "",
+  optional = FALSE,
+  base_url = "https://api.skilljar.com"
+) {
   # Validate inputs
   if (missing(course_id) || is.null(course_id)) {
     rlang::abort("course_id is required")
@@ -56,11 +58,20 @@ create_lesson <- function(course_id,
     )
   }
 
-  valid_types <- c("ASSET", "HTML", "WEB_PACKAGE", "QUIZ", "VILT", "MODULAR", "SECTION")
+  valid_types <- c(
+    "ASSET",
+    "HTML",
+    "WEB_PACKAGE",
+    "QUIZ",
+    "VILT",
+    "MODULAR",
+    "SECTION"
+  )
   if (!type %in% valid_types) {
     rlang::abort(sprintf(
       "Invalid lesson type '%s'. Must be one of: %s",
-      type, paste(valid_types, collapse = ", ")
+      type,
+      paste(valid_types, collapse = ", ")
     ))
   }
 
@@ -121,15 +132,17 @@ create_lesson <- function(course_id,
 #' }
 #'
 #' @export
-create_lesson_with_content <- function(course_id,
-                                       lesson_title,
-                                       html_path,
-                                       content_title,
-                                       api_key = Sys.getenv("SKILLJAR_API_KEY"),
-                                       lesson_order = NULL,
-                                       content_order = 0,
-                                       description_html = "",
-                                       base_url = "https://api.skilljar.com") {
+create_lesson_with_content <- function(
+  course_id,
+  lesson_title,
+  html_path,
+  content_title,
+  api_key = Sys.getenv("SKILLJAR_API_KEY"),
+  lesson_order = NULL,
+  content_order = 0,
+  description_html = "",
+  base_url = "https://api.skilljar.com"
+) {
   # Auto-detect next order if not specified
   if (is.null(lesson_order)) {
     message("Auto-detecting next lesson order...")

@@ -19,7 +19,11 @@
 #' }
 #'
 #' @export
-get_course <- function(course_id, api_key = Sys.getenv("SKILLJAR_API_KEY"), base_url = "https://api.skilljar.com") {
+get_course <- function(
+  course_id,
+  api_key = Sys.getenv("SKILLJAR_API_KEY"),
+  base_url = "https://api.skilljar.com"
+) {
   if (missing(course_id) || is.null(course_id)) {
     rlang::abort("course_id is required")
   }
@@ -66,7 +70,11 @@ get_course <- function(course_id, api_key = Sys.getenv("SKILLJAR_API_KEY"), base
 #' }
 #'
 #' @export
-list_lessons <- function(course_id, api_key = Sys.getenv("SKILLJAR_API_KEY"), base_url = "https://api.skilljar.com") {
+list_lessons <- function(
+  course_id,
+  api_key = Sys.getenv("SKILLJAR_API_KEY"),
+  base_url = "https://api.skilljar.com"
+) {
   if (missing(course_id) || is.null(course_id)) {
     rlang::abort("course_id is required")
   }
@@ -112,8 +120,16 @@ list_lessons <- function(course_id, api_key = Sys.getenv("SKILLJAR_API_KEY"), ba
 #' }
 #'
 #' @export
-get_next_lesson_order <- function(course_id, api_key = Sys.getenv("SKILLJAR_API_KEY"), base_url = "https://api.skilljar.com") {
-  lessons <- list_lessons(course_id = course_id, api_key = api_key, base_url = base_url)
+get_next_lesson_order <- function(
+  course_id,
+  api_key = Sys.getenv("SKILLJAR_API_KEY"),
+  base_url = "https://api.skilljar.com"
+) {
+  lessons <- list_lessons(
+    course_id = course_id,
+    api_key = api_key,
+    base_url = base_url
+  )
 
   if (length(lessons$results) == 0) {
     return(0L)

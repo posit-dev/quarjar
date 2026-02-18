@@ -30,20 +30,28 @@ perform_request <- function(req, operation = "API request") {
     body <- httr2::resp_body_string(resp)
 
     # Try to parse as JSON for better error messages
-    error_detail <- tryCatch({
-      json_body <- jsonlite::fromJSON(body, simplifyVector = FALSE)
-      if (is.list(json_body) && length(json_body) > 0) {
-        # Format error details nicely with cli
-        errors <- lapply(names(json_body), function(field) {
-          msgs <- json_body[[field]]
-          if (is.list(msgs)) msgs <- unlist(msgs)
-          sprintf("  %s %s: %s", cli::symbol$bullet, field, paste(msgs, collapse = ", "))
-        })
-        paste(errors, collapse = "\n")
-      } else {
-        body
-      }
-    }, error = function(e) body)
+    error_detail <- tryCatch(
+      {
+        json_body <- jsonlite::fromJSON(body, simplifyVector = FALSE)
+        if (is.list(json_body) && length(json_body) > 0) {
+          # Format error details nicely with cli
+          errors <- lapply(names(json_body), function(field) {
+            msgs <- json_body[[field]]
+            if (is.list(msgs)) msgs <- unlist(msgs)
+            sprintf(
+              "  %s %s: %s",
+              cli::symbol$bullet,
+              field,
+              paste(msgs, collapse = ", ")
+            )
+          })
+          paste(errors, collapse = "\n")
+        } else {
+          body
+        }
+      },
+      error = function(e) body
+    )
 
     rlang::abort(sprintf(
       "Failed to %s (HTTP %d):\n%s",

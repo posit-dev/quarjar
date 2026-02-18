@@ -16,8 +16,10 @@
 #' }
 #'
 #' @export
-skilljar_request <- function(api_key = Sys.getenv("SKILLJAR_API_KEY"),
-                             base_url = "https://api.skilljar.com") {
+skilljar_request <- function(
+  api_key = Sys.getenv("SKILLJAR_API_KEY"),
+  base_url = "https://api.skilljar.com"
+) {
   if (api_key == "") {
     rlang::abort(
       "api_key is required. Set SKILLJAR_API_KEY environment variable or pass api_key argument."
