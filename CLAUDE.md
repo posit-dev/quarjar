@@ -32,20 +32,34 @@ This file provides context for AI assistants (like Claude) working on the quarja
    - Supports SCORM packages and HTML5 web content
    - **Important:** Web packages are processed asynchronously by Skilljar
 
-5. **Course Helpers** (`R/courses.R`)
+5. **Quarto Package Generation** (`R/generate_zip_package.R`)
+   - `generate_zip_package()` - Render Quarto document and create ZIP package
+   - Workflow: Renders .qmd → HTML → Creates timestamped ZIP file
+   - Used as foundation for GitHub Actions automation
+   - Returns path to created ZIP file (invisibly)
+
+6. **Workflow Setup Helper** (`R/use_skilljar_workflow.R`)
+   - `use_skilljar_workflow()` - Install GitHub Actions workflow in user's repository
+   - Follows usethis package patterns for discoverability
+   - Interactive prompts with `cli::cli_yesno()` for overwrite confirmation
+   - Safety checks: Prevents running from quarjar package directory
+   - Validates git repository before installation
+   - Displays next steps and setup instructions after installation
+
+7. **Course Helpers** (`R/courses.R`)
    - `get_course()`, `list_lessons()`, `get_next_lesson_order()`
 
-6. **Lesson Helpers** (`R/lessons.R`)
+8. **Lesson Helpers** (`R/lessons.R`)
    - `get_lesson()`, `list_content_items()`
 
-7. **Asset Management** (`R/assets.R`)
+9. **Asset Management** (`R/assets.R`)
    - `upload_asset()` - Upload files as assets (images, PDFs, videos)
    - `get_asset()`, `list_assets()`, `delete_asset()` - Manage assets
    - **Note:** Assets are separate from web packages
 
-8. **Error Handling** (`R/utils.R`)
-   - `perform_request()` - Centralized error handling with formatted API responses
-   - Uses cli package for cross-platform symbols
+10. **Error Handling** (`R/utils.R`)
+    - `perform_request()` - Centralized error handling with formatted API responses
+    - Uses cli package for cross-platform symbols
 
 ### Key Design Decisions
 
@@ -77,6 +91,15 @@ This file provides context for AI assistants (like Claude) working on the quarja
    - Assets are for individual files (PDFs, images, videos) within lessons
    - Web packages are standalone packaged content (SCORM, HTML5)
    - These are separate features with different use cases
+
+7. **GitHub Actions Automation**
+   - Complete CI/CD pipeline via `inst/workflows/publish-quarto-to-skilljar.yml`
+   - End-to-end: Quarto render → ZIP → GitHub Pages → Skilljar web package → lesson
+   - Timestamped ZIP filenames for version management
+   - Automatic cleanup (keeps 5 most recent ZIPs)
+   - URL verification with retry logic (30 attempts over 5 minutes)
+   - Users install via `use_skilljar_workflow()` helper function
+   - See GITHUB_ACTION_SETUP.md for complete setup documentation
 
 ## API Structure
 
@@ -122,6 +145,18 @@ HTTP Basic Auth:
 ### Issue 3: API key not found
 **Cause:** SKILLJAR_API_KEY environment variable not set
 **Solution:** Set via `Sys.setenv(SKILLJAR_API_KEY = "key")`
+
+### Issue 4: GitHub Actions workflow fails with "Package installation failed"
+**Cause:** Using `install_local()` instead of `install_github()` in workflow
+**Solution:** Workflow should use `remotes::install_github("posit-dev/quarjar")`
+
+### Issue 5: GitHub Pages URL not accessible immediately
+**Cause:** GitHub Pages deployment is asynchronous
+**Solution:** Workflow includes retry logic with URL verification (30 attempts, 5 minutes max)
+
+### Issue 6: Running `use_skilljar_workflow()` from quarjar package directory
+**Cause:** Attempting to install workflow in the quarjar package itself
+**Solution:** Function includes safety check and aborts with helpful message
 
 ## Development Guidelines
 
@@ -177,14 +212,20 @@ result <- create_lesson_with_content(
 ```
 quarjar/
 ├── R/
-│   ├── assets.R           # Asset upload (not used in main workflow)
-│   ├── client.R           # API authentication
-│   ├── courses.R          # Course-level functions
-│   ├── create_lesson.R    # Lesson creation (main entry point)
-│   ├── lessons.R          # Lesson retrieval functions
-│   ├── publish.R          # Content publishing
-│   ├── quarjar-package.R  # Package documentation
-│   └── utils.R            # Error handling helpers
+│   ├── assets.R                # Asset upload (not used in main workflow)
+│   ├── client.R                # API authentication
+│   ├── courses.R               # Course-level functions
+│   ├── create_lesson.R         # Lesson creation (main entry point)
+│   ├── generate_zip_package.R  # Quarto rendering and ZIP packaging
+│   ├── lessons.R               # Lesson retrieval functions
+│   ├── publish.R               # Content publishing
+│   ├── quarjar-package.R       # Package documentation
+│   ├── use_skilljar_workflow.R # GitHub Actions workflow installer
+│   ├── utils.R                 # Error handling helpers
+│   └── web_packages.R          # Web package management
+├── inst/
+│   └── workflows/
+│       └── publish-quarto-to-skilljar.yml  # Reusable GitHub Actions workflow
 ├── examples/
 │   ├── test.html          # Sample HTML for testing
 │   ├── publish.R          # Example usage script
@@ -194,6 +235,7 @@ quarjar/
 ├── DESCRIPTION            # Package metadata
 ├── NAMESPACE              # Exported functions
 ├── README.md              # User documentation
+├── GITHUB_ACTION_SETUP.md # Complete GitHub Actions setup guide
 └── CLAUDE.md              # This file
 ```
 
@@ -210,6 +252,57 @@ quarjar/
 - devtools - Package development
 - roxygen2 - Documentation generation
 - testthat - Testing (future)
+
+## GitHub Actions Workflow Details
+
+### Pipeline Architecture
+
+The automated workflow (`inst/workflows/publish-quarto-to-skilljar.yml`) implements a complete end-to-end publishing pipeline:
+
+**Pipeline Steps:**
+1. **Render** - Uses Quarto to render .qmd to HTML
+2. **Package** - Creates timestamped ZIP file (e.g., `lesson-20260218-143022.zip`)
+3. **Publish** - Deploys ZIP to GitHub Pages via `gh-pages` branch
+4. **Verify** - Actively checks URL accessibility with retry logic
+5. **Create** - Makes Skilljar web package from public URL
+6. **Lesson** - Creates WEB_PACKAGE lesson in specified course
+
+**Key Features:**
+- **Timestamped filenames**: Unique names prevent conflicts, enable versioning
+- **Automatic cleanup**: Keeps only 5 most recent ZIP files on gh-pages
+- **Retry logic**: 30 attempts over 5 minutes to verify GitHub Pages deployment
+- **URL verification**: Uses curl to actively check accessibility before proceeding
+
+### Installation Methods
+
+**Recommended: Helper Function**
+```r
+# Users install workflow in their repository
+quarjar::use_skilljar_workflow()
+```
+
+**Manual: Copy from inst/**
+```bash
+# Copy workflow file to user's repository
+cp inst/workflows/publish-quarto-to-skilljar.yml .github/workflows/
+```
+
+**Reusable: Reference quarjar workflow**
+```yaml
+# In user's repository
+jobs:
+  publish:
+    uses: posit-dev/quarjar/.github/workflows/publish-quarto-to-skilljar.yml@main
+```
+
+### Setup Requirements
+
+Users must configure:
+1. GitHub Pages (Settings → Pages → Deploy from `gh-pages` branch)
+2. Repository secret `SKILLJAR_API_KEY`
+3. Repository permissions to "Read and write" (Settings → Actions → General)
+
+See GITHUB_ACTION_SETUP.md for complete setup instructions.
 
 ## Future Enhancements (Not Implemented)
 
@@ -285,6 +378,9 @@ Key resources:
 4. **Auto-order detection** prevents common user errors
 5. **cli package** used instead of UTF-8 for cross-platform compatibility
 6. **Invisible returns** on main functions - they succeed silently, use cli alerts for feedback
+7. **GitHub Actions workflow** lives in `inst/workflows/` (not `.github/workflows/`) because it's for users to install in their repos
+8. **Timestamped ZIPs** enable version tracking and prevent conflicts on GitHub Pages
+9. **URL verification** critical - GitHub Pages deployment is asynchronous, must actively check accessibility
 
 When modifying code:
 - Maintain sensible defaults (api_key from env, type="MODULAR", etc.)
@@ -292,3 +388,10 @@ When modifying code:
 - Add cli alerts for success feedback
 - Update both function docs and examples
 - Test with devtools::load_all() before committing
+
+When modifying GitHub Actions workflow:
+- Always use `remotes::install_github()` not `install_local()` (must work from any repo)
+- Keep timestamped filenames for version management
+- Maintain retry logic for URL verification (GitHub Pages is async)
+- Keep cleanup logic (retain 5 most recent ZIPs)
+- Update GITHUB_ACTION_SETUP.md if changing requirements
