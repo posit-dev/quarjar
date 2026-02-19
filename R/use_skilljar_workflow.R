@@ -89,20 +89,20 @@ use_skilljar_workflow <- function(overwrite = FALSE) {
   # Check if file already exists
   if (file.exists(target_path) && !overwrite) {
     if (interactive()) {
-      response <- cli::cli_yesno(
-        "Workflow file already exists at {.file {target_path}}. Overwrite?",
-        default = FALSE
-      )
-      if (!response) {
+      cli::cli_text("Workflow file already exists at {.file {target_path}}")
+      response <- readline(prompt = "Overwrite? (y/n): ")
+
+      if (is.null(response) || !tolower(trimws(response)) %in% c("y", "yes")) {
         cli::cli_alert_info("Workflow installation cancelled.")
         return(invisible(NULL))
       }
-      overwrite <- TRUE
+      overwrite <- TRUE # MUST keep this line to enable overwrite after user confirms
     } else {
+      # Non-interactive and file exists and overwrite not specified
       cli::cli_abort(
         c(
           "Workflow file already exists: {.file {target_path}}",
-          "i" = "Use {.code overwrite = TRUE} to replace it"
+          "i" = "Set {.arg overwrite = TRUE} to replace it"
         )
       )
     }
