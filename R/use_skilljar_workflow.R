@@ -96,13 +96,12 @@ use_skilljar_workflow <- function(overwrite = FALSE) {
         cli::cli_alert_info("Workflow installation cancelled.")
         return(invisible(NULL))
       }
-      overwrite <- TRUE # MUST keep this line to enable overwrite after user confirms
     } else {
       # Non-interactive and file exists and overwrite not specified
       cli::cli_abort(
         c(
           "Workflow file already exists: {.file {target_path}}",
-          "i" = "Set {.arg overwrite = TRUE} to replace it"
+          "i" = "Set {.code overwrite = TRUE} to replace it"
         )
       )
     }
