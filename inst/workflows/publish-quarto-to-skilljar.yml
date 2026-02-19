@@ -1,0 +1,307 @@
+name: Publish Quarto to Skilljar via GitHub Pages
+
+on:
+  workflow_dispatch:
+    inputs:
+      qmd-file:
+        description: "Path to Quarto (.qmd) file to publish"
+        required: true
+        type: string
+      course-id:
+        description: "Skilljar course ID"
+        required: true
+        type: string
+      lesson-title:
+        description: "Title for the lesson"
+        required: true
+        type: string
+      package-title:
+        description:
+          "Title for the web package (defaults to lesson title if not provided)"
+        required: false
+        type: string
+      base-url:
+        description: "Skilljar API base URL"
+        required: false
+        type: string
+        default: "https://api.skilljar.com"
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+jobs:
+  render-and-publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Quarto
+        uses: quarto-dev/quarto-actions/setup@v2
+
+      - name: Setup R
+        uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: "release"
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libcurl4-openssl-dev
+
+      - name: Install R dependencies
+        run: |
+          install.packages(c("remotes", "httr2", "rlang", "jsonlite", "curl", "cli", "withr"))
+        shell: Rscript {0}
+
+      - name: Install quarjar package
+        run: |
+          remotes::install_github("posit-dev/quarjar", upgrade = "never")
+        shell: Rscript {0}
+
+      - name: Generate ZIP package from Quarto
+        id: generate-zip
+        run: |
+          library(quarjar)
+
+          qmd_file <- "${{ inputs.qmd-file }}"
+
+          # Generate ZIP package
+          zip_path <- generate_zip_package(qmd_file, quiet = FALSE)
+
+          # Create timestamped filename for uniqueness
+          base_name <- tools::file_path_sans_ext(basename(zip_path))
+          timestamp <- format(Sys.time(), "%Y%m%d-%H%M%S")
+          timestamped_filename <- sprintf("%s-%s.zip", base_name, timestamp)
+
+          # Rename the file
+          timestamped_path <- file.path(dirname(zip_path), timestamped_filename)
+          file.rename(zip_path, timestamped_path)
+
+          cat("zip_path=", timestamped_path, "\n", sep = "", file = Sys.getenv("GITHUB_OUTPUT"), append = TRUE)
+          cat("zip_filename=", timestamped_filename, "\n", sep = "", file = Sys.getenv("GITHUB_OUTPUT"), append = TRUE)
+
+          message("ZIP package created: ", timestamped_path)
+        shell: Rscript {0}
+
+      - name: Deploy ZIP to GitHub Pages
+        run: |
+          # Configure git
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Create or switch to gh-pages branch
+          git fetch origin gh-pages 2>/dev/null || true
+          if git rev-parse --verify origin/gh-pages >/dev/null 2>&1; then
+            # Branch exists, check it out
+            git checkout gh-pages
+          else
+            # Branch doesn't exist, create it
+            git checkout --orphan gh-pages
+            # Remove all files from staging if this is a new branch
+            git rm -rf . 2>/dev/null || true
+          fi
+
+          # Create skilljar-zips directory if it doesn't exist
+          mkdir -p skilljar-zips
+
+          # Copy the new ZIP file to subdirectory
+          cp "${{ steps.generate-zip.outputs.zip_path }}" skilljar-zips/
+
+          # Clean up old ZIP files in subdirectory (keep only the 5 most recent)
+          cd skilljar-zips
+          ls -t *.zip 2>/dev/null | tail -n +6 | xargs -r rm -f
+          cd ..
+
+          # Add and commit only the skilljar-zips directory
+          git add skilljar-zips/
+          git commit -m "Deploy ${{ steps.generate-zip.outputs.zip_filename }} to GitHub Pages" || echo "No changes to commit"
+
+          # Push to gh-pages (no --force to preserve other content)
+          git push origin gh-pages
+
+      - name: Wait for GitHub Pages deployment
+        id: wait-pages
+        env:
+          ZIP_FILENAME: ${{ steps.generate-zip.outputs.zip_filename }}
+        run: |
+          # Construct GitHub Pages URL (in skilljar-zips subdirectory)
+          REPO_OWNER="${GITHUB_REPOSITORY_OWNER}"
+          REPO_NAME="${GITHUB_REPOSITORY##*/}"
+          ZIP_URL="https://${REPO_OWNER}.github.io/${REPO_NAME}/skilljar-zips/${ZIP_FILENAME}"
+
+          echo "Waiting for GitHub Pages to deploy: ${ZIP_URL}"
+
+          # Retry logic: check if URL is accessible
+          MAX_ATTEMPTS=30  # 5 minutes total (30 * 10 seconds)
+          ATTEMPT=1
+          SUCCESS=0
+
+          while [ $ATTEMPT -le $MAX_ATTEMPTS ]; do
+            echo "Attempt ${ATTEMPT}/${MAX_ATTEMPTS}: Checking if ${ZIP_URL} is accessible..."
+
+            # Use curl with specific flags:
+            # -s: silent, -f: fail on HTTP errors, -I: HEAD request only
+            # -L: follow redirects, --max-time 10: timeout after 10 seconds
+            if curl -sfIL --max-time 10 "${ZIP_URL}" > /dev/null 2>&1; then
+              echo "✅ GitHub Pages deployment successful! URL is accessible."
+              SUCCESS=1
+              break
+            fi
+
+            echo "Not yet accessible. Waiting 10 seconds before retry..."
+            sleep 10
+            ATTEMPT=$((ATTEMPT + 1))
+          done
+
+          if [ $SUCCESS -eq 0 ]; then
+            echo "❌ ERROR: GitHub Pages deployment verification timed out after 5 minutes."
+            echo "The URL ${ZIP_URL} is still not accessible."
+            exit 1
+          fi
+
+          # Save URL for next steps
+          echo "zip_url=${ZIP_URL}" >> $GITHUB_OUTPUT
+
+      - name: Create Skilljar web package and lesson
+        id: create-lesson
+        env:
+          SKILLJAR_API_KEY: ${{ secrets.SKILLJAR_API_KEY }}
+          COURSE_ID: ${{ inputs.course-id }}
+          LESSON_TITLE: ${{ inputs.lesson-title }}
+          PACKAGE_TITLE: ${{ inputs.package-title }}
+          BASE_URL: ${{ inputs.base-url }}
+          ZIP_URL: ${{ steps.wait-pages.outputs.zip_url }}
+        run: |
+          library(quarjar)
+
+          # Get verified GitHub Pages URL from previous step
+          zip_url <- Sys.getenv("ZIP_URL")
+
+          cat("GitHub Pages URL:", zip_url, "\n")
+
+          # Use package title if provided, otherwise use lesson title
+          package_title <- Sys.getenv("PACKAGE_TITLE")
+          if (package_title == "") {
+            package_title <- Sys.getenv("LESSON_TITLE")
+          }
+
+          # Step 1: Create web package from GitHub Pages URL
+          cat("\n=== Creating web package ===\n")
+          pkg <- create_web_package(
+            content_url = zip_url,
+            title = package_title,
+            api_key = Sys.getenv("SKILLJAR_API_KEY"),
+            base_url = Sys.getenv("BASE_URL")
+          )
+
+          cat("Web package ID:", pkg$id, "\n")
+
+          # Step 2: Wait for Skilljar to process the package
+          cat("\n=== Waiting for web package processing ===\n")
+          max_attempts <- 12  # 2 minutes total
+          attempt <- 1
+
+          while (attempt <= max_attempts) {
+            cat("Attempt", attempt, "of", max_attempts, "\n")
+            Sys.sleep(10)
+
+            pkg_status <- tryCatch(
+              get_web_package(
+                web_package_id = pkg$id,
+                api_key = Sys.getenv("SKILLJAR_API_KEY"),
+                base_url = Sys.getenv("BASE_URL")
+              ),
+              error = function(e) {
+                cat("Error checking status:", conditionMessage(e), "\n")
+                NULL
+              }
+            )
+
+            if (!is.null(pkg_status)) {
+              cat("Package state:", pkg_status$state, "\n")
+              if (pkg_status$state == "processed") {
+                cat("Web package processing complete!\n")
+                break
+              }
+            }
+
+            attempt <- attempt + 1
+          }
+
+          if (attempt > max_attempts) {
+            warning("Web package may still be processing. Attempting to create lesson anyway...")
+          }
+
+          # Step 3: Create lesson with the web package
+          cat("\n=== Creating lesson ===\n")
+          lesson <- create_lesson_with_web_package(
+            course_id = Sys.getenv("COURSE_ID"),
+            lesson_title = Sys.getenv("LESSON_TITLE"),
+            web_package_id = pkg$id,
+            api_key = Sys.getenv("SKILLJAR_API_KEY"),
+            base_url = Sys.getenv("BASE_URL")
+          )
+
+          cat("\n=== Success ===\n")
+          cat("Lesson ID:", lesson$id, "\n")
+          cat("Lesson Title:", lesson$title, "\n")
+
+          # Output for GitHub summary
+          cat("lesson_id=", lesson$id, "\n", sep = "", file = Sys.getenv("GITHUB_OUTPUT"), append = TRUE)
+          cat("web_package_id=", pkg$id, "\n", sep = "", file = Sys.getenv("GITHUB_OUTPUT"), append = TRUE)
+          cat("zip_url=", zip_url, "\n", sep = "", file = Sys.getenv("GITHUB_OUTPUT"), append = TRUE)
+        shell: Rscript {0}
+
+      - name: Cleanup old ZIP files from gh-pages
+        if: always()
+        run: |
+          echo "Cleaning up old ZIP files from gh-pages branch..."
+
+          git fetch origin gh-pages 2>/dev/null || true
+          git checkout gh-pages 2>/dev/null || exit 0
+
+          # Check if skilljar-zips directory exists
+          if [ ! -d "skilljar-zips" ]; then
+            echo "skilljar-zips directory not found, nothing to clean up"
+            exit 0
+          fi
+
+          cd skilljar-zips
+
+          # Check if any ZIP files exist
+          if ! ls *.zip >/dev/null 2>&1; then
+            echo "No ZIP files found, nothing to clean up"
+            exit 0
+          fi
+
+          # Keep only the 5 most recent ZIP files, delete the rest
+          OLD_ZIPS=$(ls -t *.zip 2>/dev/null | tail -n +6)
+
+          if [ -n "$OLD_ZIPS" ]; then
+            echo "Deleting old ZIP files:"
+            echo "$OLD_ZIPS"
+            echo "$OLD_ZIPS" | xargs rm -f
+
+            git add -A
+            git commit -m "Cleanup: Remove old ZIP files" || echo "Nothing to clean up"
+            git push origin gh-pages || echo "Failed to push cleanup"
+          else
+            echo "No old ZIP files to clean up"
+          fi
+
+      - name: Summary
+        if: success()
+        run: |
+          echo "### ✅ Published to Skilljar" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Quarto File**: ${{ inputs.qmd-file }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **ZIP File**: ${{ steps.generate-zip.outputs.zip_filename }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **GitHub Pages URL**: ${{ steps.create-lesson.outputs.zip_url }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Web Package ID**: ${{ steps.create-lesson.outputs.web_package_id }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Course ID**: ${{ inputs.course-id }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Lesson Title**: ${{ inputs.lesson-title }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Lesson ID**: ${{ steps.create-lesson.outputs.lesson_id }}" >> $GITHUB_STEP_SUMMARY

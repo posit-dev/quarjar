@@ -1,0 +1,35 @@
+---
+title: "Test Lesson"
+format:
+  html:
+    theme: default
+    toc: true
+---
+
+## Introduction
+
+This is a test lesson for the Skilljar publisher workflow.
+
+## Section 1
+
+Here's some content with **bold** and *italic* text.
+
+## Section 2
+
+Here's a list:
+
+- Item 1
+- Item 2
+- Item 3
+
+## Code Example
+
+```r
+# A simple R example
+x <- 1:10
+mean(x)
+```
+
+## Conclusion
+
+This demonstrates the automated workflow from Quarto to Skilljar via GitHub Pages.
