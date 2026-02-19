@@ -4,26 +4,27 @@ on:
   workflow_dispatch:
     inputs:
       qmd-file:
-        description: 'Path to Quarto (.qmd) file to publish'
+        description: "Path to Quarto (.qmd) file to publish"
         required: true
         type: string
       course-id:
-        description: 'Skilljar course ID'
+        description: "Skilljar course ID"
         required: true
         type: string
       lesson-title:
-        description: 'Title for the lesson'
+        description: "Title for the lesson"
         required: true
         type: string
       package-title:
-        description: 'Title for the web package (defaults to lesson title if not provided)'
+        description:
+          "Title for the web package (defaults to lesson title if not provided)"
         required: false
         type: string
       base-url:
-        description: 'Skilljar API base URL'
+        description: "Skilljar API base URL"
         required: false
         type: string
-        default: 'https://api.skilljar.com'
+        default: "https://api.skilljar.com"
 
 permissions:
   contents: write
@@ -44,7 +45,7 @@ jobs:
       - name: Setup R
         uses: r-lib/actions/setup-r@v2
         with:
-          r-version: 'release'
+          r-version: "release"
 
       - name: Install system dependencies
         run: |
@@ -270,6 +271,12 @@ jobs:
           fi
 
           cd skilljar-zips
+
+          # Check if any ZIP files exist
+          if ! ls *.zip >/dev/null 2>&1; then
+            echo "No ZIP files found, nothing to clean up"
+            exit 0
+          fi
 
           # Keep only the 5 most recent ZIP files, delete the rest
           OLD_ZIPS=$(ls -t *.zip 2>/dev/null | tail -n +6)

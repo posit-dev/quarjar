@@ -227,15 +227,15 @@ quarjar/
 │   └── workflows/
 │       └── publish-quarto-to-skilljar.yml  # Reusable GitHub Actions workflow
 ├── examples/
-│   ├── test.html          # Sample HTML for testing
-│   ├── publish.R          # Example usage script
-│   └── README.md          # Testing documentation
+│   ├── test.html              # Sample HTML for testing
+│   ├── publish.R              # Example usage script
+│   ├── GITHUB_ACTION_SETUP.md # Complete GitHub Actions setup guide
+│   └── README.md              # Testing documentation
 ├── docs/
 │   └── skilljar_api.yml   # Skilljar API OpenAPI spec
 ├── DESCRIPTION            # Package metadata
 ├── NAMESPACE              # Exported functions
 ├── README.md              # User documentation
-├── GITHUB_ACTION_SETUP.md # Complete GitHub Actions setup guide
 └── CLAUDE.md              # This file
 ```
 
@@ -304,7 +304,7 @@ Users must configure:
 2. Repository secret `SKILLJAR_API_KEY`
 3. Repository permissions to "Read and write" (Settings → Actions → General)
 
-See GITHUB_ACTION_SETUP.md for complete setup instructions.
+See examples/GITHUB_ACTION_SETUP.md for complete setup instructions.
 
 ## Future Enhancements (Not Implemented)
 
