@@ -96,10 +96,10 @@ This file provides context for AI assistants (like Claude) working on the quarja
    - Complete CI/CD pipeline via `inst/workflows/publish-quarto-to-skilljar.yml`
    - End-to-end: Quarto render → ZIP → GitHub Pages → Skilljar web package → lesson
    - Timestamped ZIP filenames for version management
-   - Automatic cleanup (keeps 5 most recent ZIPs)
+   - Stores ZIPs in `skilljar-zips/` subdirectory (coexists with pkgdown sites, etc.)
+   - Automatic cleanup (keeps 5 most recent ZIPs in subdirectory)
    - URL verification with retry logic (30 attempts over 5 minutes)
    - Users install via `use_skilljar_workflow()` helper function
-   - See GITHUB_ACTION_SETUP.md for complete setup documentation
 
 ## API Structure
 
@@ -262,16 +262,18 @@ The automated workflow (`inst/workflows/publish-quarto-to-skilljar.yml`) impleme
 **Pipeline Steps:**
 1. **Render** - Uses Quarto to render .qmd to HTML
 2. **Package** - Creates timestamped ZIP file (e.g., `lesson-20260218-143022.zip`)
-3. **Publish** - Deploys ZIP to GitHub Pages via `gh-pages` branch
+3. **Publish** - Deploys ZIP to GitHub Pages via `gh-pages` branch in `skilljar-zips/` subdirectory
 4. **Verify** - Actively checks URL accessibility with retry logic
 5. **Create** - Makes Skilljar web package from public URL
 6. **Lesson** - Creates WEB_PACKAGE lesson in specified course
 
 **Key Features:**
+- **Subdirectory isolation**: Stores ZIPs in `skilljar-zips/` subdirectory, coexists with other GitHub Pages content (pkgdown, etc.)
 - **Timestamped filenames**: Unique names prevent conflicts, enable versioning
-- **Automatic cleanup**: Keeps only 5 most recent ZIP files on gh-pages
+- **Automatic cleanup**: Keeps only 5 most recent ZIP files in subdirectory
 - **Retry logic**: 30 attempts over 5 minutes to verify GitHub Pages deployment
 - **URL verification**: Uses curl to actively check accessibility before proceeding
+- **Non-destructive**: Uses regular push (not `--force`), preserves other gh-pages content
 
 ### Installation Methods
 
@@ -393,5 +395,7 @@ When modifying GitHub Actions workflow:
 - Always use `remotes::install_github()` not `install_local()` (must work from any repo)
 - Keep timestamped filenames for version management
 - Maintain retry logic for URL verification (GitHub Pages is async)
-- Keep cleanup logic (retain 5 most recent ZIPs)
-- Update GITHUB_ACTION_SETUP.md if changing requirements
+- Keep cleanup logic (retain 5 most recent ZIPs in skilljar-zips/ subdirectory)
+- Use subdirectory isolation (skilljar-zips/) to coexist with other GitHub Pages content
+- Don't use `--force` push - preserve other gh-pages content
+- Update documentation if changing requirements

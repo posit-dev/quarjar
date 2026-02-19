@@ -94,30 +94,43 @@ jobs:
 
           # Create or switch to gh-pages branch
           git fetch origin gh-pages 2>/dev/null || true
-          git checkout gh-pages 2>/dev/null || git checkout --orphan gh-pages
+          if git rev-parse --verify origin/gh-pages >/dev/null 2>&1; then
+            # Branch exists, check it out
+            git checkout gh-pages
+          else
+            # Branch doesn't exist, create it
+            git checkout --orphan gh-pages
+            # Remove all files from staging if this is a new branch
+            git rm -rf . 2>/dev/null || true
+          fi
 
-          # Copy the new ZIP file
-          cp "${{ steps.generate-zip.outputs.zip_path }}" .
+          # Create skilljar-zips directory if it doesn't exist
+          mkdir -p skilljar-zips
 
-          # Clean up old ZIP files (keep only the 5 most recent)
+          # Copy the new ZIP file to subdirectory
+          cp "${{ steps.generate-zip.outputs.zip_path }}" skilljar-zips/
+
+          # Clean up old ZIP files in subdirectory (keep only the 5 most recent)
+          cd skilljar-zips
           ls -t *.zip 2>/dev/null | tail -n +6 | xargs -r rm -f
+          cd ..
 
-          # Add and commit
-          git add "${{ steps.generate-zip.outputs.zip_filename }}"
+          # Add and commit only the skilljar-zips directory
+          git add skilljar-zips/
           git commit -m "Deploy ${{ steps.generate-zip.outputs.zip_filename }} to GitHub Pages" || echo "No changes to commit"
 
-          # Push to gh-pages
-          git push origin gh-pages --force
+          # Push to gh-pages (no --force to preserve other content)
+          git push origin gh-pages
 
       - name: Wait for GitHub Pages deployment
         id: wait-pages
         env:
           ZIP_FILENAME: ${{ steps.generate-zip.outputs.zip_filename }}
         run: |
-          # Construct GitHub Pages URL
+          # Construct GitHub Pages URL (in skilljar-zips subdirectory)
           REPO_OWNER="${GITHUB_REPOSITORY_OWNER}"
           REPO_NAME="${GITHUB_REPOSITORY##*/}"
-          ZIP_URL="https://${REPO_OWNER}.github.io/${REPO_NAME}/${ZIP_FILENAME}"
+          ZIP_URL="https://${REPO_OWNER}.github.io/${REPO_NAME}/skilljar-zips/${ZIP_FILENAME}"
 
           echo "Waiting for GitHub Pages to deploy: ${ZIP_URL}"
 
@@ -249,6 +262,14 @@ jobs:
 
           git fetch origin gh-pages 2>/dev/null || true
           git checkout gh-pages 2>/dev/null || exit 0
+
+          # Check if skilljar-zips directory exists
+          if [ ! -d "skilljar-zips" ]; then
+            echo "skilljar-zips directory not found, nothing to clean up"
+            exit 0
+          fi
+
+          cd skilljar-zips
 
           # Keep only the 5 most recent ZIP files, delete the rest
           OLD_ZIPS=$(ls -t *.zip 2>/dev/null | tail -n +6)

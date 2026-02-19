@@ -14,10 +14,14 @@
 #' \itemize{
 #'   \item Renders your Quarto document to HTML
 #'   \item Packages it as a ZIP file with a timestamped filename
-#'   \item Publishes the ZIP to GitHub Pages for public hosting
+#'   \item Publishes the ZIP to GitHub Pages in a `skilljar-zips/` subdirectory for public hosting
 #'   \item Creates a Skilljar web package from the GitHub Pages URL
 #'   \item Creates a WEB_PACKAGE lesson in your Skilljar course
 #' }
+#'
+#' The workflow stores ZIP files in a `skilljar-zips/` subdirectory on the
+#' `gh-pages` branch, allowing you to use GitHub Pages for other content
+#' (like rendered Quarto documents) alongside the Skilljar publishing workflow.
 #'
 #' **Setup Requirements:**
 #'
@@ -51,7 +55,9 @@
 #' @export
 use_skilljar_workflow <- function(overwrite = FALSE) {
   # Check that we're not in the quarjar package directory itself
-  if (basename(getwd()) == "quarjar" && file.exists("R/use_skilljar_workflow.R")) {
+  if (
+    basename(getwd()) == "quarjar" && file.exists("R/use_skilljar_workflow.R")
+  ) {
     cli::cli_abort(
       c(
         "This function should not be run from the quarjar package directory.",

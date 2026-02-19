@@ -382,9 +382,11 @@ The `publish-quarto-to-skilljar.yml` workflow provides an end-to-end solution:
 
 1. ✅ Renders your Quarto document to HTML
 2. ✅ Packages it as a ZIP file with timestamped filename
-3. ✅ Publishes the ZIP to GitHub Pages (provides public URL)
+3. ✅ Publishes the ZIP to GitHub Pages in `skilljar-zips/` subdirectory (provides public URL)
 4. ✅ Creates a Skilljar web package from the GitHub Pages URL
 5. ✅ Creates a WEB_PACKAGE lesson in your course
+
+**Note:** The workflow stores ZIP files in a `skilljar-zips/` subdirectory, allowing you to use GitHub Pages for other content (like pkgdown documentation) alongside Skilljar publishing.
 
 #### Quick Start
 
