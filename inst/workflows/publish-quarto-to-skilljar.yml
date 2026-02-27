@@ -59,7 +59,7 @@ jobs:
 
       - name: Install quarjar package
         run: |
-          remotes::install_github("posit-dev/quarjar", upgrade = "never")
+          remotes::install_github("posit-dev/quarjar")
         shell: Rscript {0}
 
       - name: Generate ZIP package from Quarto
