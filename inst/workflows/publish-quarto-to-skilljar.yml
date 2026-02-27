@@ -1,6 +1,9 @@
 name: Publish Quarto to Skilljar via GitHub Pages
 
 on:
+  push:
+    branches: [main]
+    paths: ["**/*.qmd"]
   workflow_dispatch:
     inputs:
       qmd-file:
@@ -32,8 +35,87 @@ permissions:
   id-token: write
 
 jobs:
-  render-and-publish:
+  detect:
     runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+      has-items: ${{ steps.set-matrix.outputs.has_items }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Get changed QMD files
+        if: github.event_name == 'push'
+        id: changed-files
+        uses: tj-actions/changed-files@v47
+        with:
+          files: "**/*.qmd"
+
+      - name: Build matrix
+        id: set-matrix
+        env:
+          CHANGED_FILES: ${{ steps.changed-files.outputs.all_changed_files }}
+          INPUT_QMD_FILE: ${{ inputs.qmd-file }}
+          INPUT_COURSE_ID: ${{ inputs.course-id }}
+          INPUT_LESSON_TITLE: ${{ inputs.lesson-title }}
+          INPUT_PACKAGE_TITLE: ${{ inputs.package-title }}
+          INPUT_BASE_URL: ${{ inputs.base-url || 'https://api.skilljar.com' }}
+        run: |
+          python3 << 'PYEOF'
+          import yaml, json, os
+
+          event = os.environ.get('GITHUB_EVENT_NAME', '')
+
+          if event == 'workflow_dispatch':
+              items = [{
+                  'qmd_file': os.environ.get('INPUT_QMD_FILE', ''),
+                  'course_id': os.environ.get('INPUT_COURSE_ID', ''),
+                  'lesson_title': os.environ.get('INPUT_LESSON_TITLE', ''),
+                  'package_title': os.environ.get('INPUT_PACKAGE_TITLE', ''),
+                  'base_url': os.environ.get('INPUT_BASE_URL', 'https://api.skilljar.com'),
+              }]
+          else:
+              changed = os.environ.get('CHANGED_FILES', '').strip()
+              files = changed.split() if changed else []
+              items = []
+              for f in files:
+                  try:
+                      with open(f) as fh:
+                          content = fh.read()
+                      parts = content.split('---')
+                      if len(parts) >= 3:
+                          fm = yaml.safe_load(parts[1]) or {}
+                          course_id = str(fm.get('skilljar-course-id', '')).strip()
+                          if course_id:
+                              items.append({
+                                  'qmd_file': f,
+                                  'course_id': course_id,
+                                  'lesson_title': str(fm.get('title', f)),
+                                  'package_title': str(fm.get('skilljar-package-title', '')),
+                                  'base_url': 'https://api.skilljar.com',
+                              })
+                          else:
+                              print(f"Skipping {f}: no skilljar-course-id in front matter")
+                  except Exception as e:
+                      print(f"Warning: could not parse {f}: {e}")
+
+          matrix = {'include': items}
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as out:
+              out.write(f"matrix={json.dumps(matrix)}\n")
+              out.write(f"has_items={'true' if items else 'false'}\n")
+          PYEOF
+
+  render-and-publish:
+    needs: detect
+    if: needs.detect.outputs.has-items == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      matrix: ${{ fromJson(needs.detect.outputs.matrix) }}
+      fail-fast: false
+      # max-parallel: 1 prevents concurrent pushes to gh-pages from conflicting.
+      # Remove if you are confident files have distinct names and accept the
+      # small risk of a push race (the losing job would simply need a re-run).
+      max-parallel: 1
 
     steps:
       - name: Checkout repository
@@ -46,6 +128,7 @@ jobs:
         uses: r-lib/actions/setup-r@v2
         with:
           r-version: "release"
+          use-public-rspm: true
 
       - name: Install system dependencies
         run: |
@@ -54,12 +137,13 @@ jobs:
 
       - name: Install R dependencies
         run: |
-          install.packages(c("remotes", "httr2", "rlang", "jsonlite", "curl", "cli", "withr"))
+          options(repos = c(CRAN = "https://p3m.dev/cran/__linux__/noble/latest"))
+          install.packages(c("pak", "httr2", "rlang", "jsonlite", "curl", "cli", "withr"))
         shell: Rscript {0}
 
       - name: Install quarjar package
         run: |
-          remotes::install_github("posit-dev/quarjar")
+          pak::pak("posit-dev/quarjar")
         shell: Rscript {0}
 
       - name: Generate ZIP package from Quarto
@@ -67,7 +151,7 @@ jobs:
         run: |
           library(quarjar)
 
-          qmd_file <- "${{ inputs.qmd-file }}"
+          qmd_file <- "${{ matrix.qmd_file }}"
 
           # Generate ZIP package
           zip_path <- generate_zip_package(qmd_file, quiet = FALSE)
@@ -170,10 +254,10 @@ jobs:
         id: create-lesson
         env:
           SKILLJAR_API_KEY: ${{ secrets.SKILLJAR_API_KEY }}
-          COURSE_ID: ${{ inputs.course-id }}
-          LESSON_TITLE: ${{ inputs.lesson-title }}
-          PACKAGE_TITLE: ${{ inputs.package-title }}
-          BASE_URL: ${{ inputs.base-url }}
+          COURSE_ID: ${{ matrix.course_id }}
+          LESSON_TITLE: ${{ matrix.lesson_title }}
+          PACKAGE_TITLE: ${{ matrix.package_title }}
+          BASE_URL: ${{ matrix.base_url }}
           ZIP_URL: ${{ steps.wait-pages.outputs.zip_url }}
         run: |
           library(quarjar)
@@ -298,10 +382,10 @@ jobs:
         run: |
           echo "### ✅ Published to Skilljar" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- **Quarto File**: ${{ inputs.qmd-file }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Quarto File**: ${{ matrix.qmd_file }}" >> $GITHUB_STEP_SUMMARY
           echo "- **ZIP File**: ${{ steps.generate-zip.outputs.zip_filename }}" >> $GITHUB_STEP_SUMMARY
           echo "- **GitHub Pages URL**: ${{ steps.create-lesson.outputs.zip_url }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Web Package ID**: ${{ steps.create-lesson.outputs.web_package_id }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Course ID**: ${{ inputs.course-id }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Lesson Title**: ${{ inputs.lesson-title }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Course ID**: ${{ matrix.course_id }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Lesson Title**: ${{ matrix.lesson_title }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Lesson ID**: ${{ steps.create-lesson.outputs.lesson_id }}" >> $GITHUB_STEP_SUMMARY
