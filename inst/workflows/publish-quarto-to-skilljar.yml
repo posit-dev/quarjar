@@ -148,10 +148,12 @@ jobs:
 
       - name: Generate ZIP package from Quarto
         id: generate-zip
+        env:
+          QMD_FILE: ${{ matrix.qmd_file }}
         run: |
           library(quarjar)
 
-          qmd_file <- "${{ matrix.qmd_file }}"
+          qmd_file <- Sys.getenv("QMD_FILE")
 
           # Generate ZIP package
           zip_path <- generate_zip_package(qmd_file, quiet = FALSE)
@@ -172,6 +174,9 @@ jobs:
         shell: Rscript {0}
 
       - name: Deploy ZIP to GitHub Pages
+        env:
+          ZIP_PATH: ${{ steps.generate-zip.outputs.zip_path }}
+          ZIP_FILENAME: ${{ steps.generate-zip.outputs.zip_filename }}
         run: |
           # Configure git
           git config --global user.name "github-actions[bot]"
@@ -193,7 +198,7 @@ jobs:
           mkdir -p skilljar-zips
 
           # Copy the new ZIP file to subdirectory
-          cp "${{ steps.generate-zip.outputs.zip_path }}" skilljar-zips/
+          cp "${ZIP_PATH}" skilljar-zips/
 
           # Clean up old ZIP files in subdirectory (keep only the 5 most recent)
           cd skilljar-zips
@@ -202,7 +207,7 @@ jobs:
 
           # Add and commit only the skilljar-zips directory
           git add skilljar-zips/
-          git commit -m "Deploy ${{ steps.generate-zip.outputs.zip_filename }} to GitHub Pages" || echo "No changes to commit"
+          git commit -m "Deploy ${ZIP_FILENAME} to GitHub Pages" || echo "No changes to commit"
 
           # Push to gh-pages (no --force to preserve other content)
           git push origin gh-pages
@@ -379,13 +384,21 @@ jobs:
 
       - name: Summary
         if: success()
+        env:
+          QMD_FILE: ${{ matrix.qmd_file }}
+          ZIP_FILENAME: ${{ steps.generate-zip.outputs.zip_filename }}
+          PAGES_URL: ${{ steps.create-lesson.outputs.zip_url }}
+          WEB_PACKAGE_ID: ${{ steps.create-lesson.outputs.web_package_id }}
+          COURSE_ID: ${{ matrix.course_id }}
+          LESSON_TITLE: ${{ matrix.lesson_title }}
+          LESSON_ID: ${{ steps.create-lesson.outputs.lesson_id }}
         run: |
           echo "### ✅ Published to Skilljar" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- **Quarto File**: ${{ matrix.qmd_file }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **ZIP File**: ${{ steps.generate-zip.outputs.zip_filename }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **GitHub Pages URL**: ${{ steps.create-lesson.outputs.zip_url }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Web Package ID**: ${{ steps.create-lesson.outputs.web_package_id }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Course ID**: ${{ matrix.course_id }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Lesson Title**: ${{ matrix.lesson_title }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Lesson ID**: ${{ steps.create-lesson.outputs.lesson_id }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Quarto File**: ${QMD_FILE}" >> $GITHUB_STEP_SUMMARY
+          echo "- **ZIP File**: ${ZIP_FILENAME}" >> $GITHUB_STEP_SUMMARY
+          echo "- **GitHub Pages URL**: ${PAGES_URL}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Web Package ID**: ${WEB_PACKAGE_ID}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Course ID**: ${COURSE_ID}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Lesson Title**: ${LESSON_TITLE}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Lesson ID**: ${LESSON_ID}" >> $GITHUB_STEP_SUMMARY
