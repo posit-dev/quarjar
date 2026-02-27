@@ -99,16 +99,26 @@ jobs:
                               'package_title': str(fm.get('skilljar-package-title', '')),
                               'base_url': 'https://api.skilljar.com',
                           })
+                          print(f"Added {f}: course_id={course_id!r}")
                       else:
                           print(f"Skipping {f}: no skilljar-course-id in front matter")
                   except Exception as e:
                       print(f"Warning: could not parse {f}: {e}")
 
           matrix = {'include': items}
+          print(f"Matrix: {json.dumps(matrix)}")
           with open(os.environ['GITHUB_OUTPUT'], 'a') as out:
               out.write(f"matrix={json.dumps(matrix)}\n")
               out.write(f"has_items={'true' if items else 'false'}\n")
           PYEOF
+
+      - name: Debug matrix output
+        env:
+          MATRIX: ${{ steps.set-matrix.outputs.matrix }}
+          HAS_ITEMS: ${{ steps.set-matrix.outputs.has_items }}
+        run: |
+          echo "has_items: ${HAS_ITEMS}"
+          echo "matrix: ${MATRIX}"
 
   render-and-publish:
     needs: detect
@@ -317,7 +327,7 @@ jobs:
 
             if (!is.null(pkg_status)) {
               cat("Package state:", pkg_status$state, "\n")
-              if (pkg_status$state == "processed") {
+              if (pkg_status$state == "READY") {
                 cat("Web package processing complete!\n")
                 break
               }
