@@ -62,7 +62,7 @@ jobs:
           INPUT_BASE_URL: ${{ inputs.base-url || 'https://api.skilljar.com' }}
         run: |
           python3 << 'PYEOF'
-          import yaml, json, os
+          import yaml, json, os, re
 
           event = os.environ.get('GITHUB_EVENT_NAME', '')
 
@@ -78,24 +78,29 @@ jobs:
               changed = os.environ.get('CHANGED_FILES', '').strip()
               files = changed.split() if changed else []
               items = []
+              FRONT_MATTER_SEP = re.compile(r'^---\s*$', re.MULTILINE)
               for f in files:
                   try:
                       with open(f) as fh:
                           content = fh.read()
-                      parts = content.split('---')
-                      if len(parts) >= 3:
-                          fm = yaml.safe_load(parts[1]) or {}
-                          course_id = str(fm.get('skilljar-course-id', '')).strip()
-                          if course_id:
-                              items.append({
-                                  'qmd_file': f,
-                                  'course_id': course_id,
-                                  'lesson_title': str(fm.get('title', f)),
-                                  'package_title': str(fm.get('skilljar-package-title', '')),
-                                  'base_url': 'https://api.skilljar.com',
-                              })
-                          else:
-                              print(f"Skipping {f}: no skilljar-course-id in front matter")
+                      parts = FRONT_MATTER_SEP.split(content, maxsplit=2)
+                      # parts[0] must be empty (file starts with ---) and
+                      # parts[1] is the front matter, parts[2] is the body
+                      if len(parts) < 3 or parts[0].strip() != '':
+                          print(f"Skipping {f}: no YAML front matter found")
+                          continue
+                      fm = yaml.safe_load(parts[1]) or {}
+                      course_id = str(fm.get('skilljar-course-id', '')).strip()
+                      if course_id:
+                          items.append({
+                              'qmd_file': f,
+                              'course_id': course_id,
+                              'lesson_title': str(fm.get('title', f)),
+                              'package_title': str(fm.get('skilljar-package-title', '')),
+                              'base_url': 'https://api.skilljar.com',
+                          })
+                      else:
+                          print(f"Skipping {f}: no skilljar-course-id in front matter")
                   except Exception as e:
                       print(f"Warning: could not parse {f}: {e}")
 
