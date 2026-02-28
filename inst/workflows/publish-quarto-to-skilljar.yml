@@ -28,6 +28,11 @@ on:
         required: false
         type: string
         default: "https://api.skilljar.com"
+      display-fullscreen:
+        description: "Display lesson in fullscreen mode"
+        required: false
+        type: boolean
+        default: true
 
 permissions:
   contents: write
@@ -60,6 +65,7 @@ jobs:
           INPUT_LESSON_TITLE: ${{ inputs.lesson-title }}
           INPUT_PACKAGE_TITLE: ${{ inputs.package-title }}
           INPUT_BASE_URL: ${{ inputs.base-url || 'https://api.skilljar.com' }}
+          INPUT_DISPLAY_FULLSCREEN: ${{ inputs.display-fullscreen }}
         run: |
           python3 << 'PYEOF'
           import yaml, json, os, re
@@ -73,6 +79,7 @@ jobs:
                   'lesson_title': os.environ.get('INPUT_LESSON_TITLE', ''),
                   'package_title': os.environ.get('INPUT_PACKAGE_TITLE', ''),
                   'base_url': os.environ.get('INPUT_BASE_URL', 'https://api.skilljar.com'),
+                  'display_fullscreen': os.environ.get('INPUT_DISPLAY_FULLSCREEN', 'true').lower() == 'true',
               }]
           else:
               changed = os.environ.get('CHANGED_FILES', '').strip()
@@ -90,18 +97,19 @@ jobs:
                           print(f"Skipping {f}: no YAML front matter found")
                           continue
                       fm = yaml.safe_load(parts[1]) or {}
-                      course_id = str(fm.get('skilljar-course-id', '')).strip()
+                      course_id = str(fm.get('skilljar_course_id', '')).strip()
                       if course_id:
                           items.append({
                               'qmd_file': f,
                               'course_id': course_id,
                               'lesson_title': str(fm.get('title', f)),
-                              'package_title': str(fm.get('skilljar-package-title', '')),
+                              'package_title': str(fm.get('skilljar_package_title', '')),
                               'base_url': 'https://api.skilljar.com',
+                              'display_fullscreen': bool(fm.get('display_fullscreen', True)),
                           })
                           print(f"Added {f}: course_id={course_id!r}")
                       else:
-                          print(f"Skipping {f}: no skilljar-course-id in front matter")
+                          print(f"Skipping {f}: no skilljar_course_id in front matter")
                   except Exception as e:
                       print(f"Warning: could not parse {f}: {e}")
 
@@ -279,6 +287,7 @@ jobs:
           PACKAGE_TITLE: ${{ matrix.package_title }}
           BASE_URL: ${{ matrix.base_url }}
           ZIP_URL: ${{ steps.wait-pages.outputs.zip_url }}
+          DISPLAY_FULLSCREEN: ${{ matrix.display_fullscreen }}
         run: |
           library(quarjar)
 
@@ -342,10 +351,13 @@ jobs:
 
           # Step 3: Create lesson with the web package
           cat("\n=== Creating lesson ===\n")
+          display_fullscreen <- tolower(Sys.getenv("DISPLAY_FULLSCREEN", "false")) == "true"
+
           lesson <- create_lesson_with_web_package(
             course_id = Sys.getenv("COURSE_ID"),
             lesson_title = Sys.getenv("LESSON_TITLE"),
             web_package_id = pkg$id,
+            display_fullscreen = display_fullscreen,
             api_key = Sys.getenv("SKILLJAR_API_KEY"),
             base_url = Sys.getenv("BASE_URL")
           )

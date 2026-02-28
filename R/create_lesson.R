@@ -11,6 +11,9 @@
 #' @param order Numeric. Position of the lesson in the course. Default is 0.
 #' @param description_html Character. HTML description of the lesson. Default is empty.
 #' @param optional Logical. Whether the lesson is optional. Default is FALSE.
+#' @param display_fullscreen Logical or NULL. Whether to display the lesson in
+#'   fullscreen mode. When NULL (default), the field is omitted from the request
+#'   and Skilljar uses its own default.
 #' @param base_url Character. Base URL for the Skilljar API.
 #'   Default is "https://api.skilljar.com".
 #'
@@ -41,6 +44,7 @@ create_lesson <- function(
   order = 0,
   description_html = "",
   optional = FALSE,
+  display_fullscreen = NULL,
   base_url = "https://api.skilljar.com"
 ) {
   # Validate inputs
@@ -78,22 +82,27 @@ create_lesson <- function(
   # Create lesson
   message(sprintf("Creating %s lesson '%s' (order: %d)...", type, title, order))
 
+  req_body <- list(
+    course_id = as.character(course_id),
+    title = title,
+    type = type,
+    order = as.integer(order),
+    description_html = description_html,
+    optional = optional
+  )
+  if (!is.null(display_fullscreen)) {
+    req_body$display_fullscreen <- as.logical(display_fullscreen)
+  }
+
   req <- skilljar_request(api_key = api_key, base_url = base_url) |>
     httr2::req_url_path_append("v1/lessons") |>
-    httr2::req_body_json(list(
-      course_id = as.character(course_id),
-      title = title,
-      type = type,
-      order = as.integer(order),
-      description_html = description_html,
-      optional = optional
-    ))
+    httr2::req_body_json(req_body)
 
   resp <- perform_request(req, sprintf("create lesson '%s'", title))
-  body <- httr2::resp_body_json(resp)
-  cli::cli_alert_success("Lesson created with ID: {body$id}")
+  resp_body <- httr2::resp_body_json(resp)
+  cli::cli_alert_success("Lesson created with ID: {resp_body$id}")
 
-  invisible(body)
+  invisible(resp_body)
 }
 
 #' Create a Modular Lesson with HTML Content
@@ -111,6 +120,9 @@ create_lesson <- function(
 #'   automatically detects the next available order number.
 #' @param content_order Numeric. Position of the content item in the lesson. Default is 0.
 #' @param description_html Character. HTML description of the lesson. Default is empty.
+#' @param display_fullscreen Logical or NULL. Whether to display the lesson in
+#'   fullscreen mode. When NULL (default), the field is omitted from the request
+#'   and Skilljar uses its own default.
 #' @param base_url Character. Base URL for the Skilljar API.
 #'   Default is "https://api.skilljar.com".
 #'
@@ -141,6 +153,7 @@ create_lesson_with_content <- function(
   lesson_order = NULL,
   content_order = 0,
   description_html = "",
+  display_fullscreen = NULL,
   base_url = "https://api.skilljar.com"
 ) {
   # Auto-detect next order if not specified
@@ -162,6 +175,7 @@ create_lesson_with_content <- function(
     api_key = api_key,
     order = lesson_order,
     description_html = description_html,
+    display_fullscreen = display_fullscreen,
     base_url = base_url
   )
 

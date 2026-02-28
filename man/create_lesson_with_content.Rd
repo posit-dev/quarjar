@@ -13,6 +13,7 @@ create_lesson_with_content(
   lesson_order = NULL,
   content_order = 0,
   description_html = "",
+  display_fullscreen = NULL,
   base_url = "https://api.skilljar.com"
 )
 }
@@ -34,6 +35,10 @@ automatically detects the next available order number.}
 \item{content_order}{Numeric. Position of the content item in the lesson. Default is 0.}
 
 \item{description_html}{Character. HTML description of the lesson. Default is empty.}
+
+\item{display_fullscreen}{Logical or NULL. Whether to display the lesson in
+fullscreen mode. When NULL (default), the field is omitted from the request
+and Skilljar uses its own default.}
 
 \item{base_url}{Character. Base URL for the Skilljar API.
 Default is "https://api.skilljar.com".}

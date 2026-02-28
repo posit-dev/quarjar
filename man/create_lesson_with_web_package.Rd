@@ -9,6 +9,7 @@ create_lesson_with_web_package(
   lesson_title,
   web_package_id,
   description = NULL,
+  display_fullscreen = NULL,
   order = NULL,
   api_key = Sys.getenv("SKILLJAR_API_KEY"),
   base_url = "https://api.skilljar.com"
@@ -22,6 +23,10 @@ create_lesson_with_web_package(
 \item{web_package_id}{Character. ID of an existing web package to associate with the lesson.}
 
 \item{description}{Character. Optional description for the lesson.}
+
+\item{display_fullscreen}{Logical or NULL. Whether to display the lesson in
+fullscreen mode. When NULL (default), the field is omitted from the request
+and Skilljar uses its own default.}
 
 \item{order}{Integer. Optional position of the lesson in the course.
 If NULL (default), automatically uses the next available order number.}

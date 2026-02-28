@@ -270,7 +270,7 @@ The automated workflow (`inst/workflows/publish-quarto-to-skilljar.yml`) impleme
 **Key Features:**
 - **Dual triggers**: Runs on `push` to `main` (auto-detects changed `.qmd` files) or manually via `workflow_dispatch`
 - **Matrix fan-out**: One `render-and-publish` job per changed `.qmd` file; `fail-fast: false` so one failure doesn't cancel others
-- **Front matter routing**: On push, course ID and title are read from `.qmd` YAML front matter (`skilljar-course-id`, `title`, optional `skilljar-package-title`)
+- **Front matter routing**: On push, course ID and title are read from `.qmd` YAML front matter (`skilljar_course_id`, `title`, optional `skilljar_package_title`)
 - **Subdirectory isolation**: Stores ZIPs in `skilljar-zips/` subdirectory, coexists with other GitHub Pages content (pkgdown, etc.)
 - **Timestamped filenames**: Unique names prevent conflicts, enable versioning
 - **Automatic cleanup**: Keeps only 5 most recent ZIP files in subdirectory
@@ -283,11 +283,11 @@ The automated workflow (`inst/workflows/publish-quarto-to-skilljar.yml`) impleme
 ```yaml
 ---
 title: "My Lesson Title"          # used as lesson title
-skilljar-course-id: "abc123"      # required for push trigger
-skilljar-package-title: "..."     # optional; defaults to title
+skilljar_course_id: "abc123"      # required for push trigger
+skilljar_package_title: "..."     # optional; defaults to title
 ---
 ```
-Files without `skilljar-course-id` are silently skipped.
+Files without `skilljar_course_id` are silently skipped.
 
 ### Installation Methods
 
