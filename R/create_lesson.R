@@ -82,7 +82,7 @@ create_lesson <- function(
   # Create lesson
   message(sprintf("Creating %s lesson '%s' (order: %d)...", type, title, order))
 
-  body <- list(
+  req_body <- list(
     course_id = as.character(course_id),
     title = title,
     type = type,
@@ -91,18 +91,18 @@ create_lesson <- function(
     optional = optional
   )
   if (!is.null(display_fullscreen)) {
-    body$display_fullscreen <- as.logical(display_fullscreen)
+    req_body$display_fullscreen <- as.logical(display_fullscreen)
   }
 
   req <- skilljar_request(api_key = api_key, base_url = base_url) |>
     httr2::req_url_path_append("v1/lessons") |>
-    httr2::req_body_json(body)
+    httr2::req_body_json(req_body)
 
   resp <- perform_request(req, sprintf("create lesson '%s'", title))
-  body <- httr2::resp_body_json(resp)
-  cli::cli_alert_success("Lesson created with ID: {body$id}")
+  resp_body <- httr2::resp_body_json(resp)
+  cli::cli_alert_success("Lesson created with ID: {resp_body$id}")
 
-  invisible(body)
+  invisible(resp_body)
 }
 
 #' Create a Modular Lesson with HTML Content
