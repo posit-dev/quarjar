@@ -244,6 +244,9 @@ delete_web_package <- function(
 #' @param lesson_title Character. Title for the lesson.
 #' @param web_package_id Character. ID of an existing web package to associate with the lesson.
 #' @param description Character. Optional description for the lesson.
+#' @param display_fullscreen Logical or NULL. Whether to display the lesson in
+#'   fullscreen mode. When NULL (default), the field is omitted from the request
+#'   and Skilljar uses its own default.
 #' @param order Integer. Optional position of the lesson in the course.
 #'   If NULL (default), automatically uses the next available order number.
 #' @param api_key Character. Skilljar API key for authentication.
@@ -269,6 +272,7 @@ create_lesson_with_web_package <- function(
   lesson_title,
   web_package_id,
   description = NULL,
+  display_fullscreen = NULL,
   order = NULL,
   api_key = Sys.getenv("SKILLJAR_API_KEY"),
   base_url = "https://api.skilljar.com"
@@ -308,6 +312,11 @@ create_lesson_with_web_package <- function(
   # Add optional description
   if (!is.null(description)) {
     lesson_body$description_html <- description
+  }
+
+  # Add optional display_fullscreen
+  if (!is.null(display_fullscreen)) {
+    lesson_body$display_fullscreen <- as.logical(display_fullscreen)
   }
 
   # Create the lesson

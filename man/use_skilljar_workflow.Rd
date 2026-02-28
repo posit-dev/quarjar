@@ -23,10 +23,14 @@ This function sets up a complete CI/CD pipeline that:
 \itemize{
 \item Renders your Quarto document to HTML
 \item Packages it as a ZIP file with a timestamped filename
-\item Publishes the ZIP to GitHub Pages for public hosting
+\item Publishes the ZIP to GitHub Pages in a \verb{skilljar-zips/} subdirectory for public hosting
 \item Creates a Skilljar web package from the GitHub Pages URL
 \item Creates a WEB_PACKAGE lesson in your Skilljar course
 }
+
+The workflow stores ZIP files in a \verb{skilljar-zips/} subdirectory on the
+\code{gh-pages} branch, allowing you to use GitHub Pages for other content
+(like rendered Quarto documents) alongside the Skilljar publishing workflow.
 
 \strong{Setup Requirements:}
 

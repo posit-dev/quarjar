@@ -25,7 +25,7 @@ A list containing the web package details including:
 \item id - Web package ID
 \item type - Package type (e.g., SCORM, HTML5)
 \item title - Package title
-\item state - Processing state
+\item state - Processing state (e.g., \code{"READY"} when processing is complete)
 \item download_url - Signed URL for downloading (valid for 1 hour)
 \item redirect_on_completion - Redirect setting
 \item sync_on_completion - Sync setting

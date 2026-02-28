@@ -34,7 +34,7 @@ A list containing the web package details including:
 \item id - Web package ID
 \item type - Package type (determined after processing)
 \item title - Package title
-\item state - Processing state
+\item state - Processing state (e.g., \code{"READY"} when processing is complete)
 \item redirect_on_completion - Redirect setting
 \item sync_on_completion - Sync setting
 }

@@ -12,6 +12,7 @@ create_lesson(
   order = 0,
   description_html = "",
   optional = FALSE,
+  display_fullscreen = NULL,
   base_url = "https://api.skilljar.com"
 )
 }
@@ -31,6 +32,10 @@ Default reads from SKILLJAR_API_KEY environment variable.}
 \item{description_html}{Character. HTML description of the lesson. Default is empty.}
 
 \item{optional}{Logical. Whether the lesson is optional. Default is FALSE.}
+
+\item{display_fullscreen}{Logical or NULL. Whether to display the lesson in
+fullscreen mode. When NULL (default), the field is omitted from the request
+and Skilljar uses its own default.}
 
 \item{base_url}{Character. Base URL for the Skilljar API.
 Default is "https://api.skilljar.com".}
