@@ -28,6 +28,7 @@ This file provides context for AI assistants (like Claude) working on the quarja
 4. **Web Package Management** (`R/web_packages.R`)
    - `create_web_package()` - Create web package from remote ZIP URL
    - `create_lesson_with_web_package()` - Create WEB_PACKAGE lesson
+   - `update_lesson()` - PATCH existing WEB_PACKAGE lesson with a new web package
    - `get_web_package()`, `list_web_packages()`, `delete_web_package()`
    - Supports SCORM packages and HTML5 web content
    - **Important:** Web packages are processed asynchronously by Skilljar
@@ -95,6 +96,8 @@ This file provides context for AI assistants (like Claude) working on the quarja
 7. **GitHub Actions Automation**
    - Complete CI/CD pipeline via `inst/workflows/publish-quarto-to-skilljar.yml`
    - End-to-end: Quarto render → ZIP → GitHub Pages → Skilljar web package → lesson
+   - **Create path** (first publish): creates lesson, opens PR to write `skilljar_lesson_id` back to front matter
+   - **Update path** (subsequent pushes): when `skilljar_lesson_id` is in front matter, PATCHes the existing lesson with a new web package and deletes the old one
    - Timestamped ZIP filenames for version management
    - Stores ZIPs in `skilljar-zips/` subdirectory (coexists with pkgdown sites, etc.)
    - Automatic cleanup (keeps 5 most recent ZIPs in subdirectory)
@@ -116,6 +119,7 @@ HTTP Basic Auth:
 - `GET /v1/lessons?course_id={id}` - List lessons in course
 - `POST /v1/lessons/{id}/content-items` - Add content to MODULAR lesson
 - `GET /v1/lessons/{id}/content-items` - List content items
+- `PATCH /v1/lessons/{id}` - Update lesson (e.g., swap web package)
 - `POST /v1/web-packages` - Create web package from remote ZIP URL
 - `GET /v1/web-packages` - List web packages
 - `GET /v1/web-packages/{id}` - Get web package details (includes download URL)
@@ -259,18 +263,24 @@ quarjar/
 
 The automated workflow (`inst/workflows/publish-quarto-to-skilljar.yml`) implements a complete end-to-end publishing pipeline:
 
-**Pipeline Steps:**
+**Pipeline Steps (create path — first publish):**
 1. **Render** - Uses Quarto to render .qmd to HTML
 2. **Package** - Creates timestamped ZIP file (e.g., `lesson-20260218-143022.zip`)
 3. **Publish** - Deploys ZIP to GitHub Pages via `gh-pages` branch in `skilljar-zips/` subdirectory
 4. **Verify** - Actively checks URL accessibility with retry logic
-5. **Create** - Makes Skilljar web package from public URL
-6. **Lesson** - Creates WEB_PACKAGE lesson in specified course
+5. **Create web package** - Makes Skilljar web package from public URL; polls until `READY`
+6. **Create lesson** - Creates WEB_PACKAGE lesson in specified course
+7. **PR writeback** - Opens PR to add `skilljar_lesson_id` to the `.qmd` front matter
+
+**Pipeline Steps (update path — subsequent pushes, `skilljar_lesson_id` present):**
+1–5. Same as above
+6. **Update lesson** - PATCHes existing lesson with new `content_web_package_id`
+7. **Delete old web package** - Removes the replaced web package (non-fatal on failure)
 
 **Key Features:**
-- **Dual triggers**: Runs on `push` to `main` (auto-detects changed `.qmd` files) or manually via `workflow_dispatch`
+- **Push-only trigger**: Runs on `push` to `main` for changed `.qmd` files; no `workflow_dispatch`
 - **Matrix fan-out**: One `render-and-publish` job per changed `.qmd` file; `fail-fast: false` so one failure doesn't cancel others
-- **Front matter routing**: On push, course ID and title are read from `.qmd` YAML front matter (`skilljar_course_id`, `title`, optional `skilljar_package_title`)
+- **Front matter routing**: Course ID and title read from `.qmd` YAML front matter; `skilljar_lesson_id` presence determines create vs. update path
 - **Subdirectory isolation**: Stores ZIPs in `skilljar-zips/` subdirectory, coexists with other GitHub Pages content (pkgdown, etc.)
 - **Timestamped filenames**: Unique names prevent conflicts, enable versioning
 - **Automatic cleanup**: Keeps only 5 most recent ZIP files in subdirectory
@@ -278,16 +288,18 @@ The automated workflow (`inst/workflows/publish-quarto-to-skilljar.yml`) impleme
 - **URL verification**: Uses curl to actively check accessibility before proceeding
 - **Non-destructive**: Uses regular push (not `--force`), preserves other gh-pages content
 - **Serialized gh-pages pushes**: `max-parallel: 1` prevents concurrent matrix jobs from conflicting on the `gh-pages` branch
+- **PR writeback**: New lessons trigger a PR that writes `skilljar_lesson_id` back to the `.qmd`; merging activates the update-on-push path. Commit is tagged `[skip ci]` so merging doesn't re-trigger the workflow.
 
-**Front matter fields for push trigger:**
+**Front matter fields:**
 ```yaml
 ---
 title: "My Lesson Title"          # used as lesson title
-skilljar_course_id: "abc123"      # required for push trigger
+skilljar_course_id: "abc123"      # required — files without this are silently skipped
 skilljar_package_title: "..."     # optional; defaults to title
+skilljar_lesson_order: 3          # optional; explicit position in course (create only)
+skilljar_lesson_id: "xyz789"      # written back by PR after first publish; triggers update path
 ---
 ```
-Files without `skilljar_course_id` are silently skipped.
 
 ### Installation Methods
 
@@ -301,14 +313,6 @@ quarjar::use_skilljar_workflow()
 ```bash
 # Copy workflow file to user's repository
 cp inst/workflows/publish-quarto-to-skilljar.yml .github/workflows/
-```
-
-**Reusable: Reference quarjar workflow**
-```yaml
-# In user's repository
-jobs:
-  publish:
-    uses: posit-dev/quarjar/.github/workflows/publish-quarto-to-skilljar.yml@main
 ```
 
 ### Setup Requirements
@@ -327,7 +331,6 @@ Potential additions if needed:
 1. **Update/Delete Operations**
    - `update_content_item()`
    - `delete_content_item()`
-   - `update_lesson()`
 
 2. **Batch Operations**
    - `publish_multiple_lessons()` - Bulk publishing
@@ -397,6 +400,11 @@ Key resources:
 7. **GitHub Actions workflow** lives in `inst/workflows/` (not `.github/workflows/`) because it's for users to install in their repos
 8. **Timestamped ZIPs** enable version tracking and prevent conflicts on GitHub Pages
 9. **URL verification** critical - GitHub Pages deployment is asynchronous, must actively check accessibility
+10. **`update_lesson()`** sends only `content_web_package_id` in the PATCH body — no order, title, or other fields
+11. **`skilljar_lesson_id` front matter field** is the switch between create and update paths in the workflow; never set manually for new lessons
+12. **`skilljar_lesson_order` front matter field** controls lesson position on the create path only; ignored on updates
+13. **PR writeback** — after first publish the workflow opens a PR to add `skilljar_lesson_id` to the `.qmd`; the commit message includes `[skip ci]` so merging does not re-trigger the workflow
+14. **No `workflow_dispatch`** — the workflow is push-only; re-triggering a failed run requires an empty commit
 
 When modifying code:
 - Maintain sensible defaults (api_key from env, type="MODULAR", etc.)
@@ -412,4 +420,5 @@ When modifying GitHub Actions workflow:
 - Keep cleanup logic (retain 5 most recent ZIPs in skilljar-zips/ subdirectory)
 - Use subdirectory isolation (skilljar-zips/) to coexist with other GitHub Pages content
 - Don't use `--force` push - preserve other gh-pages content
+- Keep `pull-requests: write` permission — needed for the PR writeback step
 - Update documentation if changing requirements

@@ -235,6 +235,53 @@ delete_web_package <- function(
 }
 
 
+#' Update a WEB_PACKAGE lesson with a new web package
+#'
+#' PATCHes an existing WEB_PACKAGE lesson to replace its web package content.
+#' Only \code{content_web_package_id} is sent in the request body — order,
+#' title, and other lesson fields are left unchanged.
+#'
+#' @param lesson_id Character. The ID of the lesson to update.
+#' @param content_web_package_id Character. The ID of the new web package.
+#' @param api_key Character. Skilljar API key for authentication.
+#'   Default reads from SKILLJAR_API_KEY environment variable.
+#' @param base_url Character. Base URL for the Skilljar API.
+#'   Default is "https://api.skilljar.com".
+#'
+#' @return Invisibly returns the updated lesson object.
+#'
+#' @examples
+#' \dontrun{
+#'   update_lesson("lesson-id", "new-web-package-id")
+#' }
+#'
+#' @export
+update_lesson <- function(
+  lesson_id,
+  content_web_package_id,
+  api_key = Sys.getenv("SKILLJAR_API_KEY"),
+  base_url = "https://api.skilljar.com"
+) {
+  if (missing(lesson_id) || !nchar(lesson_id)) {
+    rlang::abort("lesson_id must be provided")
+  }
+  if (missing(content_web_package_id) || !nchar(content_web_package_id)) {
+    rlang::abort("content_web_package_id must be provided")
+  }
+
+  req <- skilljar_request(api_key = api_key, base_url = base_url) |>
+    httr2::req_url_path_append("v1", "lessons", lesson_id) |>
+    httr2::req_method("PATCH") |>
+    httr2::req_body_json(list(content_web_package_id = content_web_package_id))
+
+  resp <- perform_request(req, "update lesson")
+  lesson <- httr2::resp_body_json(resp)
+
+  cli::cli_alert_success("Lesson {lesson$id} updated with web package {content_web_package_id}")
+  invisible(lesson)
+}
+
+
 #' Create Lesson with Web Package Content
 #'
 #' Creates a WEB_PACKAGE type lesson and associates it with an existing web package.
