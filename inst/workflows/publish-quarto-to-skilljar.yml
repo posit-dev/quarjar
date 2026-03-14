@@ -4,35 +4,6 @@ on:
   push:
     branches: [main]
     paths: ["**/*.qmd"]
-  workflow_dispatch:
-    inputs:
-      qmd-file:
-        description: "Path to Quarto (.qmd) file to publish"
-        required: true
-        type: string
-      course-id:
-        description: "Skilljar course ID"
-        required: true
-        type: string
-      lesson-title:
-        description: "Title for the lesson"
-        required: true
-        type: string
-      package-title:
-        description:
-          "Title for the web package (defaults to lesson title if not provided)"
-        required: false
-        type: string
-      base-url:
-        description: "Skilljar API base URL"
-        required: false
-        type: string
-        default: "https://api.skilljar.com"
-      display-fullscreen:
-        description: "Display lesson in fullscreen mode"
-        required: false
-        type: boolean
-        default: true
 
 permissions:
   contents: write
@@ -47,10 +18,9 @@ jobs:
       has-items: ${{ steps.set-matrix.outputs.has_items }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Get changed QMD files
-        if: github.event_name == 'push'
         id: changed-files
         uses: tj-actions/changed-files@v47
         with:
@@ -60,58 +30,42 @@ jobs:
         id: set-matrix
         env:
           CHANGED_FILES: ${{ steps.changed-files.outputs.all_changed_files }}
-          INPUT_QMD_FILE: ${{ inputs.qmd-file }}
-          INPUT_COURSE_ID: ${{ inputs.course-id }}
-          INPUT_LESSON_TITLE: ${{ inputs.lesson-title }}
-          INPUT_PACKAGE_TITLE: ${{ inputs.package-title }}
-          INPUT_BASE_URL: ${{ inputs.base-url || 'https://api.skilljar.com' }}
-          INPUT_DISPLAY_FULLSCREEN: ${{ inputs.display-fullscreen }}
         run: |
           python3 << 'PYEOF'
           import yaml, json, os, re
 
-          event = os.environ.get('GITHUB_EVENT_NAME', '')
-
-          if event == 'workflow_dispatch':
-              items = [{
-                  'qmd_file': os.environ.get('INPUT_QMD_FILE', ''),
-                  'course_id': os.environ.get('INPUT_COURSE_ID', ''),
-                  'lesson_title': os.environ.get('INPUT_LESSON_TITLE', ''),
-                  'package_title': os.environ.get('INPUT_PACKAGE_TITLE', ''),
-                  'base_url': os.environ.get('INPUT_BASE_URL', 'https://api.skilljar.com'),
-                  'display_fullscreen': os.environ.get('INPUT_DISPLAY_FULLSCREEN', 'true').lower() == 'true',
-              }]
-          else:
-              changed = os.environ.get('CHANGED_FILES', '').strip()
-              files = changed.split() if changed else []
-              items = []
-              FRONT_MATTER_SEP = re.compile(r'^---\s*$', re.MULTILINE)
-              for f in files:
-                  try:
-                      with open(f) as fh:
-                          content = fh.read()
-                      parts = FRONT_MATTER_SEP.split(content, maxsplit=2)
-                      # parts[0] must be empty (file starts with ---) and
-                      # parts[1] is the front matter, parts[2] is the body
-                      if len(parts) < 3 or parts[0].strip() != '':
-                          print(f"Skipping {f}: no YAML front matter found")
-                          continue
-                      fm = yaml.safe_load(parts[1]) or {}
-                      course_id = str(fm.get('skilljar_course_id', '')).strip()
-                      if course_id:
-                          items.append({
-                              'qmd_file': f,
-                              'course_id': course_id,
-                              'lesson_title': str(fm.get('title', f)),
-                              'package_title': str(fm.get('skilljar_package_title', '')),
-                              'base_url': 'https://api.skilljar.com',
-                              'display_fullscreen': bool(fm.get('display_fullscreen', True)),
-                          })
-                          print(f"Added {f}: course_id={course_id!r}")
-                      else:
-                          print(f"Skipping {f}: no skilljar_course_id in front matter")
-                  except Exception as e:
-                      print(f"Warning: could not parse {f}: {e}")
+          changed = os.environ.get('CHANGED_FILES', '').strip()
+          files = changed.split() if changed else []
+          items = []
+          FRONT_MATTER_SEP = re.compile(r'^---\s*$', re.MULTILINE)
+          for f in files:
+              try:
+                  with open(f) as fh:
+                      content = fh.read()
+                  parts = FRONT_MATTER_SEP.split(content, maxsplit=2)
+                  # parts[0] must be empty (file starts with ---) and
+                  # parts[1] is the front matter, parts[2] is the body
+                  if len(parts) < 3 or parts[0].strip() != '':
+                      print(f"Skipping {f}: no YAML front matter found")
+                      continue
+                  fm = yaml.safe_load(parts[1]) or {}
+                  course_id = str(fm.get('skilljar_course_id', '')).strip()
+                  if course_id:
+                      items.append({
+                          'qmd_file': f,
+                          'course_id': course_id,
+                          'lesson_title': str(fm.get('title', f)),
+                          'package_title': str(fm.get('skilljar_package_title', '')),
+                          'base_url': 'https://api.skilljar.com',
+                          'display_fullscreen': bool(fm.get('display_fullscreen', True)),
+                          'lesson_order': fm.get('skilljar_lesson_order', None),
+                          'lesson_id': str(fm.get('skilljar_lesson_id', '')),
+                      })
+                      print(f"Added {f}: course_id={course_id!r}")
+                  else:
+                      print(f"Skipping {f}: no skilljar_course_id in front matter")
+              except Exception as e:
+                  print(f"Warning: could not parse {f}: {e}")
 
           matrix = {'include': items}
           print(f"Matrix: {json.dumps(matrix)}")
@@ -142,16 +96,27 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup Quarto
         uses: quarto-dev/quarto-actions/setup@v2
 
       - name: Setup R
+        id: setup-r
         uses: r-lib/actions/setup-r@v2
         with:
           r-version: "release"
           use-public-rspm: true
+
+      - name: Cache R packages
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.R_LIBS_USER }}
+          key:
+            ${{ runner.os }}-r-${{ steps.setup-r.outputs.installed-r-version
+            }}-${{ hashFiles('**/publish-quarto-to-skilljar.yml') }}
+          restore-keys:
+            ${{ runner.os }}-r-${{ steps.setup-r.outputs.installed-r-version }}-
 
       - name: Install system dependencies
         run: |
@@ -165,6 +130,8 @@ jobs:
         shell: Rscript {0}
 
       - name: Install quarjar package
+        env:
+          GITHUB_PAT: ${{ secrets.REPO_PAT }}
         run: |
           pak::pak("posit-dev/quarjar")
         shell: Rscript {0}
@@ -278,16 +245,15 @@ jobs:
           # Save URL for next steps
           echo "zip_url=${ZIP_URL}" >> $GITHUB_OUTPUT
 
-      - name: Create Skilljar web package and lesson
-        id: create-lesson
+      - name: Create Skilljar web package
+        id: create-web-package
         env:
           SKILLJAR_API_KEY: ${{ secrets.SKILLJAR_API_KEY }}
-          COURSE_ID: ${{ matrix.course_id }}
-          LESSON_TITLE: ${{ matrix.lesson_title }}
-          PACKAGE_TITLE: ${{ matrix.package_title }}
           BASE_URL: ${{ matrix.base_url }}
+          PACKAGE_TITLE: ${{ matrix.package_title }}
+          LESSON_TITLE: ${{ matrix.lesson_title }}
+          LESSON_ID: ${{ matrix.lesson_id }}
           ZIP_URL: ${{ steps.wait-pages.outputs.zip_url }}
-          DISPLAY_FULLSCREEN: ${{ matrix.display_fullscreen }}
         run: |
           library(quarjar)
 
@@ -349,28 +315,164 @@ jobs:
             warning("Web package may still be processing. Attempting to create lesson anyway...")
           }
 
-          # Step 3: Create lesson with the web package
-          cat("\n=== Creating lesson ===\n")
-          display_fullscreen <- tolower(Sys.getenv("DISPLAY_FULLSCREEN", "false")) == "true"
+          # Step 3: If on the update path, capture the old web package ID
+          lesson_id <- Sys.getenv("LESSON_ID")
+          old_pkg_id <- ""
+          if (nchar(lesson_id) > 0) {
+            lesson_existing <- get_lesson(
+              lesson_id,
+              api_key = Sys.getenv("SKILLJAR_API_KEY"),
+              base_url = Sys.getenv("BASE_URL")
+            )
+            old_pkg_id <- lesson_existing$content_web_package_id
+            if (is.null(old_pkg_id) || is.na(old_pkg_id)) old_pkg_id <- ""
+          }
 
-          lesson <- create_lesson_with_web_package(
-            course_id = Sys.getenv("COURSE_ID"),
-            lesson_title = Sys.getenv("LESSON_TITLE"),
-            web_package_id = pkg$id,
-            display_fullscreen = display_fullscreen,
-            api_key = Sys.getenv("SKILLJAR_API_KEY"),
-            base_url = Sys.getenv("BASE_URL")
-          )
-
-          cat("\n=== Success ===\n")
-          cat("Lesson ID:", lesson$id, "\n")
-          cat("Lesson Title:", lesson$title, "\n")
-
-          # Output for GitHub summary
-          cat("lesson_id=", lesson$id, "\n", sep = "", file = Sys.getenv("GITHUB_OUTPUT"), append = TRUE)
-          cat("web_package_id=", pkg$id, "\n", sep = "", file = Sys.getenv("GITHUB_OUTPUT"), append = TRUE)
-          cat("zip_url=", zip_url, "\n", sep = "", file = Sys.getenv("GITHUB_OUTPUT"), append = TRUE)
+          cat("new_web_package_id=", pkg$id, "\n", sep = "",
+              file = Sys.getenv("GITHUB_OUTPUT"), append = TRUE)
+          cat("old_web_package_id=", old_pkg_id, "\n", sep = "",
+              file = Sys.getenv("GITHUB_OUTPUT"), append = TRUE)
         shell: Rscript {0}
+
+      - name: Create or update lesson
+        id: create-or-update-lesson
+        env:
+          SKILLJAR_API_KEY: ${{ secrets.SKILLJAR_API_KEY }}
+          COURSE_ID: ${{ matrix.course_id }}
+          LESSON_TITLE: ${{ matrix.lesson_title }}
+          BASE_URL: ${{ matrix.base_url }}
+          DISPLAY_FULLSCREEN: ${{ matrix.display_fullscreen }}
+          LESSON_ID: ${{ matrix.lesson_id }}
+          LESSON_ORDER: ${{ matrix.lesson_order }}
+          NEW_WEB_PACKAGE_ID:
+            ${{ steps.create-web-package.outputs.new_web_package_id }}
+        run: |
+          library(quarjar)
+
+          lesson_id <- Sys.getenv("LESSON_ID")
+
+          if (nchar(lesson_id) > 0) {
+            # UPDATE PATH
+            cat("\n=== Updating existing lesson ===\n")
+            lesson <- quarjar::update_lesson(
+              lesson_id              = lesson_id,
+              content_web_package_id = Sys.getenv("NEW_WEB_PACKAGE_ID"),
+              api_key                = Sys.getenv("SKILLJAR_API_KEY"),
+              base_url               = Sys.getenv("BASE_URL")
+            )
+            cat("is_new_lesson=false\n", file = Sys.getenv("GITHUB_OUTPUT"), append = TRUE)
+          } else {
+            # CREATE PATH
+            cat("\n=== Creating new lesson ===\n")
+            lesson_order_raw <- Sys.getenv("LESSON_ORDER")
+            lesson_order <- if (nchar(lesson_order_raw) > 0) as.integer(lesson_order_raw) else NULL
+
+            lesson <- quarjar::create_lesson_with_web_package(
+              course_id          = Sys.getenv("COURSE_ID"),
+              lesson_title       = Sys.getenv("LESSON_TITLE"),
+              web_package_id     = Sys.getenv("NEW_WEB_PACKAGE_ID"),
+              display_fullscreen = tolower(Sys.getenv("DISPLAY_FULLSCREEN")) == "true",
+              order              = lesson_order,
+              api_key            = Sys.getenv("SKILLJAR_API_KEY"),
+              base_url           = Sys.getenv("BASE_URL")
+            )
+            cat("is_new_lesson=true\n", file = Sys.getenv("GITHUB_OUTPUT"), append = TRUE)
+          }
+
+          cat("lesson_id=", lesson$id, "\n", sep = "",
+              file = Sys.getenv("GITHUB_OUTPUT"), append = TRUE)
+        shell: Rscript {0}
+
+      - name: Delete old web package
+        if:
+          steps.create-or-update-lesson.outputs.is_new_lesson == 'false' &&
+          steps.create-web-package.outputs.old_web_package_id != ''
+        env:
+          SKILLJAR_API_KEY: ${{ secrets.SKILLJAR_API_KEY }}
+          BASE_URL: ${{ matrix.base_url }}
+          OLD_WEB_PACKAGE_ID:
+            ${{ steps.create-web-package.outputs.old_web_package_id }}
+        run: |
+          library(quarjar)
+
+          tryCatch(
+            quarjar::delete_web_package(
+              web_package_id = Sys.getenv("OLD_WEB_PACKAGE_ID"),
+              api_key        = Sys.getenv("SKILLJAR_API_KEY"),
+              base_url       = Sys.getenv("BASE_URL")
+            ),
+            error = function(e) {
+              warning("Could not delete old web package: ", conditionMessage(e))
+            }
+          )
+        shell: Rscript {0}
+
+      - name: Write lesson ID back to main
+        if: steps.create-or-update-lesson.outputs.is_new_lesson == 'true'
+        env:
+          QMD_FILE: ${{ matrix.qmd_file }}
+          LESSON_ID: ${{ steps.create-or-update-lesson.outputs.lesson_id }}
+        run: |
+          QMD_FILE="${QMD_FILE}"
+          LESSON_ID="${LESSON_ID}"
+
+          # Anchor to origin/main (job may be on gh-pages at this point).
+          # reset --hard ensures the local branch reflects any commits pushed by
+          # earlier matrix jobs (max-parallel: 1 serializes jobs but each job
+          # checks out at the original trigger commit).
+          git fetch origin main
+          git checkout main
+          git reset --hard origin/main
+
+          # Patch the front matter
+          python3 << 'PYEOF'
+          import re, os, sys
+
+          qmd_file = os.environ['QMD_FILE']
+          lesson_id = os.environ['LESSON_ID']
+
+          with open(qmd_file, 'r') as f:
+              content = f.read()
+
+          sep = re.compile(r'^---\s*$', re.MULTILINE)
+          parts = sep.split(content, maxsplit=2)
+
+          if len(parts) < 3:
+              sys.exit(f"No front matter found in {qmd_file}")
+
+          if 'skilljar_lesson_id' in parts[1]:
+              print(f"skilljar_lesson_id already present in {qmd_file} — no changes written", file=sys.stderr)
+              sys.exit(0)   # file left unmodified; shell detects this via git diff below
+
+          fm = parts[1].rstrip() + f'\nskilljar_lesson_id: "{lesson_id}"\n'
+          new_content = f'---{fm}---{parts[2]}'
+
+          with open(qmd_file, 'w') as f:
+              f.write(new_content)
+
+          print(f"Wrote skilljar_lesson_id to {qmd_file}")
+          PYEOF
+
+          # Fail fast on any Python error (missing front matter, IO error, etc.)
+          PYEXIT=$?
+          if [ $PYEXIT -ne 0 ]; then
+            echo "Error: front matter patch script exited with code ${PYEXIT}"
+            exit 1
+          fi
+
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # If Python left the file unchanged (skilljar_lesson_id was already
+          # present), git diff returns 0 (no diff). Nothing to do.
+          if git diff --quiet "${QMD_FILE}"; then
+            echo "No front matter changes — skipping commit"
+            exit 0
+          fi
+
+          git add "${QMD_FILE}"
+          git commit -m "chore: record Skilljar lesson ID in ${QMD_FILE} [skip ci]"
+          git push origin main
 
       - name: Cleanup old ZIP files from gh-pages
         if: always()
@@ -414,11 +516,14 @@ jobs:
         env:
           QMD_FILE: ${{ matrix.qmd_file }}
           ZIP_FILENAME: ${{ steps.generate-zip.outputs.zip_filename }}
-          PAGES_URL: ${{ steps.create-lesson.outputs.zip_url }}
-          WEB_PACKAGE_ID: ${{ steps.create-lesson.outputs.web_package_id }}
+          PAGES_URL: ${{ steps.wait-pages.outputs.zip_url }}
+          WEB_PACKAGE_ID:
+            ${{ steps.create-web-package.outputs.new_web_package_id }}
           COURSE_ID: ${{ matrix.course_id }}
           LESSON_TITLE: ${{ matrix.lesson_title }}
-          LESSON_ID: ${{ steps.create-lesson.outputs.lesson_id }}
+          LESSON_ID: ${{ steps.create-or-update-lesson.outputs.lesson_id }}
+          IS_NEW_LESSON:
+            ${{ steps.create-or-update-lesson.outputs.is_new_lesson }}
         run: |
           echo "### ✅ Published to Skilljar" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
@@ -428,4 +533,9 @@ jobs:
           echo "- **Web Package ID**: ${WEB_PACKAGE_ID}" >> $GITHUB_STEP_SUMMARY
           echo "- **Course ID**: ${COURSE_ID}" >> $GITHUB_STEP_SUMMARY
           echo "- **Lesson Title**: ${LESSON_TITLE}" >> $GITHUB_STEP_SUMMARY
+          if [ "$IS_NEW_LESSON" = "true" ]; then
+            echo "- **Action:** Created new lesson" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- **Action:** Updated existing lesson" >> $GITHUB_STEP_SUMMARY
+          fi
           echo "- **Lesson ID**: ${LESSON_ID}" >> $GITHUB_STEP_SUMMARY

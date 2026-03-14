@@ -357,6 +357,18 @@ Delete a web package (only if not associated with lessons).
 
 **Returns:** NULL on success.
 
+### `update_lesson()`
+
+Update an existing WEB_PACKAGE lesson with a new web package. Only replaces the web package; all other lesson fields (title, order, etc.) are left unchanged.
+
+**Parameters:**
+- `lesson_id`: Lesson ID
+- `content_web_package_id`: ID of the new web package
+- `api_key`: Skilljar API key
+- `base_url`: API base URL (optional)
+
+**Returns:** Invisibly returns the updated lesson object.
+
 ### Utility Functions
 
 ### `skilljar_request()`
@@ -372,40 +384,59 @@ Creates a base httr2 request object configured for Skilljar API authentication.
 
 ## GitHub Actions
 
-This repository includes GitHub Actions for automated publishing workflows.
-
 ### Automated Quarto to Skilljar Pipeline
 
 **📖 Full Setup Guide**: See [GITHUB_ACTION_SETUP.md](GITHUB_ACTION_SETUP.md) for complete setup instructions, troubleshooting, and advanced configuration.
 
-The `publish-quarto-to-skilljar.yml` workflow provides an end-to-end solution:
+The `publish-quarto-to-skilljar.yml` workflow provides an end-to-end solution that triggers automatically on every push to `main` that changes a `.qmd` file.
 
+**First publish (no `skilljar_lesson_id` in front matter):**
 1. ✅ Renders your Quarto document to HTML
 2. ✅ Packages it as a ZIP file with timestamped filename
-3. ✅ Publishes the ZIP to GitHub Pages in `skilljar-zips/` subdirectory (provides public URL)
+3. ✅ Publishes the ZIP to GitHub Pages in `skilljar-zips/` subdirectory
 4. ✅ Creates a Skilljar web package from the GitHub Pages URL
 5. ✅ Creates a WEB_PACKAGE lesson in your course
+6. ✅ Opens a PR to write `skilljar_lesson_id` back into your `.qmd` front matter
+
+**Subsequent publishes (after merging the PR):**
+
+Steps 1–5 run identically, then:
+
+6. ✅ Updates the existing lesson with the new web package
+7. ✅ Deletes the old web package
 
 **Note:** The workflow stores ZIP files in a `skilljar-zips/` subdirectory, allowing you to use GitHub Pages for other content (like pkgdown documentation) alongside Skilljar publishing.
 
 #### Quick Start
-
-**Required Secrets:**
-- `SKILLJAR_API_KEY` - Your Skilljar API key
 
 **Required Setup:**
 1. Enable GitHub Pages (Settings → Pages → Deploy from `gh-pages` branch)
 2. Add `SKILLJAR_API_KEY` secret (Settings → Secrets and variables → Actions)
 3. Set repository permissions to "Read and write" (Settings → Actions → General)
 
-**Workflow Inputs:**
-- `qmd-file`: Path to your Quarto (.qmd) file
-- `course-id`: Skilljar course ID
-- `lesson-title`: Title for the lesson in Skilljar
-- `package-title`: (optional) Title for the web package
-- `base-url`: (optional) Skilljar API base URL
+#### Front Matter Configuration
 
-#### Using in Your Repository
+All workflow configuration lives in your `.qmd` front matter — no workflow inputs needed:
+
+```yaml
+---
+title: "My Lesson Title"           # used as the lesson title in Skilljar
+skilljar_course_id: "abc123"       # required — files without this are skipped
+skilljar_package_title: "..."      # optional; defaults to title
+skilljar_lesson_order: 3           # optional; explicit position in course (create only)
+skilljar_lesson_id: "xyz789"       # added automatically by PR after first publish
+---
+```
+
+`skilljar_lesson_id` is never set manually. The workflow writes it back via a PR after the first successful publish. Merging that PR activates the update-on-push path for future runs.
+
+To re-trigger a failed run without a content change:
+```bash
+git commit --allow-empty -m "re-trigger: republish to Skilljar"
+git push
+```
+
+#### Installing the Workflow
 
 **Recommended: Use the helper function**
 
@@ -417,94 +448,10 @@ remotes::install_github("posit-dev/quarjar")
 quarjar::use_skilljar_workflow()
 ```
 
-**Or manually create** `.github/workflows/publish-to-skilljar.yml`:
+**Or copy manually:**
 
-```yaml
-name: Publish to Skilljar
-
-on:
-  workflow_dispatch:
-    inputs:
-      qmd-file:
-        description: 'Path to Quarto file'
-        required: true
-        type: string
-      course-id:
-        description: 'Skilljar course ID'
-        required: true
-        type: string
-      lesson-title:
-        description: 'Lesson title'
-        required: true
-        type: string
-
-jobs:
-  publish:
-    uses: posit-dev/quarjar/.github/workflows/publish-quarto-to-skilljar.yml@main
-    with:
-      qmd-file: ${{ inputs.qmd-file }}
-      course-id: ${{ inputs.course-id }}
-      lesson-title: ${{ inputs.lesson-title }}
-    secrets:
-      SKILLJAR_API_KEY: ${{ secrets.SKILLJAR_API_KEY }}
-```
-
-### Legacy: Direct HTML Publishing
-
-The `publish-to-skilljar.yml` workflow publishes HTML content directly to existing MODULAR lessons.
-
-**Action Inputs:**
-- `lesson-id`: (required) Target Skilljar lesson ID
-- `html-file`: (required) Path to HTML file to publish
-- `title`: (required) Content item title
-- `base-url`: (optional) API base URL
-- `order`: (optional) Position in lesson
-
-**Note**: For creating new lessons from Quarto documents, use the automated pipeline above.
-
-### Old Example (Legacy)
-
-```yaml
-name: Publish Lesson
-
-on:
-  workflow_dispatch:
-    inputs:
-      lesson-id:
-        description: 'Skilljar lesson ID'
-        required: true
-      html-file:
-        description: 'Path to HTML file'
-        required: true
-      title:
-        description: 'Content item title'
-        required: true
-
-jobs:
-  publish:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Render Quarto document
-        uses: quarto-dev/quarto-actions/setup@v2
-      - run: quarto render content.qmd
-
-      - name: Trigger publish workflow
-        uses: actions/github-script@v7
-        with:
-          script: |
-            await github.rest.actions.createWorkflowDispatch({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              workflow_id: 'publish-to-skilljar.yml',
-              ref: 'main',
-              inputs: {
-                'lesson-id': '${{ inputs.lesson-id }}',
-                'html-file': '${{ inputs.html-file }}',
-                'title': '${{ inputs.title }}'
-              }
-            })
+```bash
+cp inst/workflows/publish-quarto-to-skilljar.yml .github/workflows/
 ```
 
 ## Authentication
