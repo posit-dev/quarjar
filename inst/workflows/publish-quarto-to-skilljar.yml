@@ -9,7 +9,6 @@ permissions:
   contents: write
   pages: write
   id-token: write
-  pull-requests: write
 
 jobs:
   detect:
@@ -19,7 +18,7 @@ jobs:
       has-items: ${{ steps.set-matrix.outputs.has_items }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Get changed QMD files
         id: changed-files
@@ -97,16 +96,27 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup Quarto
         uses: quarto-dev/quarto-actions/setup@v2
 
       - name: Setup R
+        id: setup-r
         uses: r-lib/actions/setup-r@v2
         with:
           r-version: "release"
           use-public-rspm: true
+
+      - name: Cache R packages
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.R_LIBS_USER }}
+          key:
+            ${{ runner.os }}-r-${{ steps.setup-r.outputs.installed-r-version
+            }}-${{ hashFiles('**/publish-quarto-to-skilljar.yml') }}
+          restore-keys:
+            ${{ runner.os }}-r-${{ steps.setup-r.outputs.installed-r-version }}-
 
       - name: Install system dependencies
         run: |
@@ -120,6 +130,8 @@ jobs:
         shell: Rscript {0}
 
       - name: Install quarjar package
+        env:
+          GITHUB_PAT: ${{ secrets.REPO_PAT }}
         run: |
           pak::pak("posit-dev/quarjar")
         shell: Rscript {0}
@@ -332,7 +344,8 @@ jobs:
           DISPLAY_FULLSCREEN: ${{ matrix.display_fullscreen }}
           LESSON_ID: ${{ matrix.lesson_id }}
           LESSON_ORDER: ${{ matrix.lesson_order }}
-          NEW_WEB_PACKAGE_ID: ${{ steps.create-web-package.outputs.new_web_package_id }}
+          NEW_WEB_PACKAGE_ID:
+            ${{ steps.create-web-package.outputs.new_web_package_id }}
         run: |
           library(quarjar)
 
@@ -371,11 +384,14 @@ jobs:
         shell: Rscript {0}
 
       - name: Delete old web package
-        if: steps.create-or-update-lesson.outputs.is_new_lesson == 'false' && steps.create-web-package.outputs.old_web_package_id != ''
+        if:
+          steps.create-or-update-lesson.outputs.is_new_lesson == 'false' &&
+          steps.create-web-package.outputs.old_web_package_id != ''
         env:
           SKILLJAR_API_KEY: ${{ secrets.SKILLJAR_API_KEY }}
           BASE_URL: ${{ matrix.base_url }}
-          OLD_WEB_PACKAGE_ID: ${{ steps.create-web-package.outputs.old_web_package_id }}
+          OLD_WEB_PACKAGE_ID:
+            ${{ steps.create-web-package.outputs.old_web_package_id }}
         run: |
           library(quarjar)
 
@@ -391,23 +407,22 @@ jobs:
           )
         shell: Rscript {0}
 
-      - name: Open PR to record lesson ID
+      - name: Write lesson ID back to main
         if: steps.create-or-update-lesson.outputs.is_new_lesson == 'true'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           QMD_FILE: ${{ matrix.qmd_file }}
           LESSON_ID: ${{ steps.create-or-update-lesson.outputs.lesson_id }}
         run: |
           QMD_FILE="${QMD_FILE}"
           LESSON_ID="${LESSON_ID}"
-          SLUG=$(echo "${QMD_FILE}" | tr '/' '-' | tr '.' '-')
-          BRANCH="skilljar/record-lesson-id-${SLUG}"
 
           # Anchor to origin/main (job may be on gh-pages at this point).
-          # Also fetch the remote branch if it already exists so that
-          # --force-with-lease below has a known expected state.
-          git fetch origin main "${BRANCH}" 2>/dev/null || git fetch origin main
-          git checkout -b "${BRANCH}" origin/main
+          # reset --hard ensures the local branch reflects any commits pushed by
+          # earlier matrix jobs (max-parallel: 1 serializes jobs but each job
+          # checks out at the original trigger commit).
+          git fetch origin main
+          git checkout main
+          git reset --hard origin/main
 
           # Patch the front matter
           python3 << 'PYEOF'
@@ -449,52 +464,15 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
           # If Python left the file unchanged (skilljar_lesson_id was already
-          # present), git diff returns 0 (no diff). Skip the commit and PR;
-          # there is nothing to do and git commit would exit 1 anyway.
+          # present), git diff returns 0 (no diff). Nothing to do.
           if git diff --quiet "${QMD_FILE}"; then
-            echo "No front matter changes — skipping commit and PR"
+            echo "No front matter changes — skipping commit"
             exit 0
           fi
 
           git add "${QMD_FILE}"
           git commit -m "chore: record Skilljar lesson ID in ${QMD_FILE} [skip ci]"
-          # --force-with-lease is safe here: we fetched the remote branch above,
-          # so git knows its expected state. On a first run the branch doesn't
-          # exist remotely and the push behaves normally. On a re-run (e.g. after
-          # a transient gh pr create failure) the remote branch is overwritten
-          # with the latest commit rather than causing a non-zero exit.
-          git push --force-with-lease origin "${BRANCH}"
-
-          # Open a PR only if one is not already open for this branch.
-          # Do NOT suppress stderr or swallow errors: a transient gh failure
-          # (auth expiry, network hiccup) would return empty output, which looks
-          # like "no existing PR" and causes gh pr create to fail with the
-          # confusing "a pull request for branch already exists" error instead.
-          EXISTING_PR=$(gh pr list --head "${BRANCH}" --state open --json number --jq '.[0].number') || {
-            echo "Error: gh pr list failed — cannot safely determine whether a PR already exists; aborting" >&2
-            exit 1
-          }
-          if [ -z "${EXISTING_PR}" ]; then
-            # Write the PR body to a temp file using printf %s so that LESSON_ID
-            # and QMD_FILE are passed as printf arguments, not interpolated inside
-            # a shell heredoc. printf %s treats its arguments as literal strings
-            # regardless of backticks, $(...), or other shell metacharacters they
-            # might contain.
-            # mktemp and trap are inside this branch: BODY_FILE is only needed
-            # here. Single-quoted trap string defers $BODY_FILE expansion to exit
-            # time and double-quotes the path, handling spaces in TMPDIR correctly.
-            BODY_FILE=$(mktemp)
-            trap 'rm -f "$BODY_FILE"' EXIT
-            printf 'The Skilljar lesson was successfully created with ID `%s`.\n\nAdding `skilljar_lesson_id` to the front matter of `%s` enables future\nworkflow runs to update the existing lesson instead of creating a new one.\n\n**Merge this PR** to activate the update-on-push behaviour for this file.\n' \
-              "${LESSON_ID}" "${QMD_FILE}" > "${BODY_FILE}"
-            gh pr create \
-              --title "Record Skilljar lesson ID for ${QMD_FILE}" \
-              --body-file "${BODY_FILE}" \
-              --base main \
-              --head "${BRANCH}"
-          else
-            echo "PR #${EXISTING_PR} already open for ${BRANCH} — skipping gh pr create"
-          fi
+          git push origin main
 
       - name: Cleanup old ZIP files from gh-pages
         if: always()
@@ -539,11 +517,13 @@ jobs:
           QMD_FILE: ${{ matrix.qmd_file }}
           ZIP_FILENAME: ${{ steps.generate-zip.outputs.zip_filename }}
           PAGES_URL: ${{ steps.wait-pages.outputs.zip_url }}
-          WEB_PACKAGE_ID: ${{ steps.create-web-package.outputs.new_web_package_id }}
+          WEB_PACKAGE_ID:
+            ${{ steps.create-web-package.outputs.new_web_package_id }}
           COURSE_ID: ${{ matrix.course_id }}
           LESSON_TITLE: ${{ matrix.lesson_title }}
           LESSON_ID: ${{ steps.create-or-update-lesson.outputs.lesson_id }}
-          IS_NEW_LESSON: ${{ steps.create-or-update-lesson.outputs.is_new_lesson }}
+          IS_NEW_LESSON:
+            ${{ steps.create-or-update-lesson.outputs.is_new_lesson }}
         run: |
           echo "### ✅ Published to Skilljar" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
