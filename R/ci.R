@@ -86,8 +86,8 @@ ci_generate_zip <- function(
 #'   \item{\code{LESSON_ID}}{Existing lesson ID; non-empty triggers the update
 #'     path (capture of the old web package ID).}
 #'   \item{\code{SKILLJAR_API_KEY}}{Skilljar API key.}
-#'   \item{\code{BASE_URL}}{Skilljar API base URL
-#'     (default: \code{https://api.skilljar.com}).}
+#'   \item{\code{BASE_URL}}{Skilljar API base URL. When unset, falls back to
+#'     the \code{quarjar.base_url} option, then \code{"https://api.skilljar.com"}.}
 #' }
 #'
 #' @param zip_url Character. Public URL of the ZIP file.
@@ -97,7 +97,9 @@ ci_generate_zip <- function(
 #' @param lesson_id Character. Existing lesson ID; non-empty triggers the
 #'   update path.
 #' @param api_key Character. Skilljar API key.
-#' @param base_url Character. Skilljar API base URL.
+#' @param base_url Character. Skilljar API base URL. Defaults to the
+#'   \code{quarjar.base_url} option, falling back to
+#'   \code{"https://api.skilljar.com"}.
 #' @param max_poll_attempts Integer. Maximum number of 10-second polling
 #'   intervals. Default 12 (2 minutes total).
 #'
@@ -118,7 +120,7 @@ ci_create_web_package <- function(
   lesson_title = Sys.getenv("LESSON_TITLE"),
   lesson_id = Sys.getenv("LESSON_ID"),
   api_key = Sys.getenv("SKILLJAR_API_KEY"),
-  base_url = Sys.getenv("BASE_URL", unset = "https://api.skilljar.com"),
+  base_url = Sys.getenv("BASE_URL", unset = quarjar_base_url()),
   max_poll_attempts = 12L
 ) {
   if (!nchar(zip_url)) {
@@ -220,8 +222,8 @@ ci_create_web_package <- function(
 #'   \item{\code{LESSON_ORDER}}{Integer lesson order (create path only; empty
 #'     string triggers auto-detection).}
 #'   \item{\code{SKILLJAR_API_KEY}}{Skilljar API key.}
-#'   \item{\code{BASE_URL}}{Skilljar API base URL
-#'     (default: \code{https://api.skilljar.com}).}
+#'   \item{\code{BASE_URL}}{Skilljar API base URL. When unset, falls back to
+#'     the \code{quarjar.base_url} option, then \code{"https://api.skilljar.com"}.}
 #' }
 #'
 #' @param lesson_id Character. Existing lesson ID. Non-empty triggers the
@@ -236,7 +238,9 @@ ci_create_web_package <- function(
 #'   path only).  When \code{NULL}, resolved from the \code{LESSON_ORDER} env
 #'   var; empty string triggers auto-detection.
 #' @param api_key Character. Skilljar API key.
-#' @param base_url Character. Skilljar API base URL.
+#' @param base_url Character. Skilljar API base URL. Defaults to the
+#'   \code{quarjar.base_url} option, falling back to
+#'   \code{"https://api.skilljar.com"}.
 #'
 #' @return Invisibly returns the lesson object returned by the API.
 #'
@@ -256,7 +260,7 @@ ci_create_or_update_lesson <- function(
   display_fullscreen = NULL,
   lesson_order = NULL,
   api_key = Sys.getenv("SKILLJAR_API_KEY"),
-  base_url = Sys.getenv("BASE_URL", unset = "https://api.skilljar.com")
+  base_url = Sys.getenv("BASE_URL", unset = quarjar_base_url())
 ) {
   if (nchar(lesson_id) > 0) {
     # UPDATE PATH
@@ -313,13 +317,15 @@ ci_create_or_update_lesson <- function(
 #' \describe{
 #'   \item{\code{OLD_WEB_PACKAGE_ID}}{ID of the web package to delete.}
 #'   \item{\code{SKILLJAR_API_KEY}}{Skilljar API key.}
-#'   \item{\code{BASE_URL}}{Skilljar API base URL
-#'     (default: \code{https://api.skilljar.com}).}
+#'   \item{\code{BASE_URL}}{Skilljar API base URL. When unset, falls back to
+#'     the \code{quarjar.base_url} option, then \code{"https://api.skilljar.com"}.}
 #' }
 #'
 #' @param old_web_package_id Character. ID of the web package to delete.
 #' @param api_key Character. Skilljar API key.
-#' @param base_url Character. Skilljar API base URL.
+#' @param base_url Character. Skilljar API base URL. Defaults to the
+#'   \code{quarjar.base_url} option, falling back to
+#'   \code{"https://api.skilljar.com"}.
 #'
 #' @return Invisibly returns \code{NULL}.
 #'
@@ -334,7 +340,7 @@ ci_create_or_update_lesson <- function(
 ci_delete_old_web_package <- function(
   old_web_package_id = Sys.getenv("OLD_WEB_PACKAGE_ID"),
   api_key = Sys.getenv("SKILLJAR_API_KEY"),
-  base_url = Sys.getenv("BASE_URL", unset = "https://api.skilljar.com")
+  base_url = Sys.getenv("BASE_URL", unset = quarjar_base_url())
 ) {
   tryCatch(
     delete_web_package(

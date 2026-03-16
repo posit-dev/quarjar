@@ -10,7 +10,7 @@ ci_create_web_package(
   lesson_title = Sys.getenv("LESSON_TITLE"),
   lesson_id = Sys.getenv("LESSON_ID"),
   api_key = Sys.getenv("SKILLJAR_API_KEY"),
-  base_url = Sys.getenv("BASE_URL", unset = "https://api.skilljar.com"),
+  base_url = Sys.getenv("BASE_URL", unset = quarjar_base_url()),
   max_poll_attempts = 12L
 )
 }
@@ -27,7 +27,9 @@ update path.}
 
 \item{api_key}{Character. Skilljar API key.}
 
-\item{base_url}{Character. Skilljar API base URL.}
+\item{base_url}{Character. Skilljar API base URL. Defaults to the
+\code{quarjar.base_url} option, falling back to
+\code{"https://api.skilljar.com"}.}
 
 \item{max_poll_attempts}{Integer. Maximum number of 10-second polling
 intervals. Default 12 (2 minutes total).}
@@ -53,8 +55,8 @@ deleted afterwards.  Writes \code{new_web_package_id} and
 \item{\code{LESSON_ID}}{Existing lesson ID; non-empty triggers the update
 path (capture of the old web package ID).}
 \item{\code{SKILLJAR_API_KEY}}{Skilljar API key.}
-\item{\code{BASE_URL}}{Skilljar API base URL
-(default: \code{https://api.skilljar.com}).}
+\item{\code{BASE_URL}}{Skilljar API base URL. When unset, falls back to
+the \code{quarjar.base_url} option, then \code{"https://api.skilljar.com"}.}
 }
 }
 

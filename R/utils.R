@@ -1,3 +1,20 @@
+#' Get the Skilljar API base URL
+#'
+#' Returns the value of the \code{quarjar.base_url} option, falling back to
+#' \code{"https://api.skilljar.com"} when the option is not set.  Set the
+#' option once per session to avoid passing \code{base_url} to every function:
+#'
+#' \preformatted{
+#' options(quarjar.base_url = "https://api.skilljar.com")
+#' }
+#'
+#' @return Character. The Skilljar API base URL.
+#' @keywords internal
+quarjar_base_url <- function() {
+  getOption("quarjar.base_url", default = "https://api.skilljar.com")
+}
+
+
 #' Perform HTTP Request with Better Error Handling
 #'
 #' Internal helper to perform HTTP requests with improved error messages.

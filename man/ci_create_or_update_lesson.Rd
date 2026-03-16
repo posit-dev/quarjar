@@ -12,7 +12,7 @@ ci_create_or_update_lesson(
   display_fullscreen = NULL,
   lesson_order = NULL,
   api_key = Sys.getenv("SKILLJAR_API_KEY"),
-  base_url = Sys.getenv("BASE_URL", unset = "https://api.skilljar.com")
+  base_url = Sys.getenv("BASE_URL", unset = quarjar_base_url())
 )
 }
 \arguments{
@@ -35,7 +35,9 @@ var; empty string triggers auto-detection.}
 
 \item{api_key}{Character. Skilljar API key.}
 
-\item{base_url}{Character. Skilljar API base URL.}
+\item{base_url}{Character. Skilljar API base URL. Defaults to the
+\code{quarjar.base_url} option, falling back to
+\code{"https://api.skilljar.com"}.}
 }
 \value{
 Invisibly returns the lesson object returned by the API.
@@ -60,8 +62,8 @@ path only; default \code{"true"}).}
 \item{\code{LESSON_ORDER}}{Integer lesson order (create path only; empty
 string triggers auto-detection).}
 \item{\code{SKILLJAR_API_KEY}}{Skilljar API key.}
-\item{\code{BASE_URL}}{Skilljar API base URL
-(default: \code{https://api.skilljar.com}).}
+\item{\code{BASE_URL}}{Skilljar API base URL. When unset, falls back to
+the \code{quarjar.base_url} option, then \code{"https://api.skilljar.com"}.}
 }
 }
 

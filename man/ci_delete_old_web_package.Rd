@@ -7,7 +7,7 @@
 ci_delete_old_web_package(
   old_web_package_id = Sys.getenv("OLD_WEB_PACKAGE_ID"),
   api_key = Sys.getenv("SKILLJAR_API_KEY"),
-  base_url = Sys.getenv("BASE_URL", unset = "https://api.skilljar.com")
+  base_url = Sys.getenv("BASE_URL", unset = quarjar_base_url())
 )
 }
 \arguments{
@@ -15,7 +15,9 @@ ci_delete_old_web_package(
 
 \item{api_key}{Character. Skilljar API key.}
 
-\item{base_url}{Character. Skilljar API base URL.}
+\item{base_url}{Character. Skilljar API base URL. Defaults to the
+\code{quarjar.base_url} option, falling back to
+\code{"https://api.skilljar.com"}.}
 }
 \value{
 Invisibly returns \code{NULL}.
@@ -30,8 +32,8 @@ clean-up step on the update path.
 \describe{
 \item{\code{OLD_WEB_PACKAGE_ID}}{ID of the web package to delete.}
 \item{\code{SKILLJAR_API_KEY}}{Skilljar API key.}
-\item{\code{BASE_URL}}{Skilljar API base URL
-(default: \code{https://api.skilljar.com}).}
+\item{\code{BASE_URL}}{Skilljar API base URL. When unset, falls back to
+the \code{quarjar.base_url} option, then \code{"https://api.skilljar.com"}.}
 }
 }
 

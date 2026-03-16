@@ -8,7 +8,7 @@ list_assets(
   page = 1,
   page_size = 20,
   api_key = Sys.getenv("SKILLJAR_API_KEY"),
-  base_url = "https://api.skilljar.com"
+  base_url = quarjar_base_url()
 )
 }
 \arguments{
@@ -20,7 +20,8 @@ list_assets(
 Default reads from SKILLJAR_API_KEY environment variable.}
 
 \item{base_url}{Character. Base URL for the Skilljar API.
-Default is "https://api.skilljar.com".}
+Defaults to the \code{quarjar.base_url} option, falling back to
+\code{"https://api.skilljar.com"}.}
 }
 \value{
 A list containing:

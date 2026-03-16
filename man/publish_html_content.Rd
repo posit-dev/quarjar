@@ -10,7 +10,7 @@ publish_html_content(
   title,
   api_key = Sys.getenv("SKILLJAR_API_KEY"),
   order = 0,
-  base_url = "https://api.skilljar.com"
+  base_url = quarjar_base_url()
 )
 }
 \arguments{
@@ -26,7 +26,8 @@ Default reads from SKILLJAR_API_KEY environment variable.}
 \item{order}{Numeric. Position of the content item in the lesson. Default is 0.}
 
 \item{base_url}{Character. Base URL for the Skilljar API.
-Default is "https://api.skilljar.com".}
+Defaults to the \code{quarjar.base_url} option, falling back to
+\code{"https://api.skilljar.com"}.}
 }
 \value{
 A list containing the response from the Skilljar API, including the

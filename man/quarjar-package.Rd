@@ -24,6 +24,16 @@ your Skilljar courses.
 }
 }
 
+\section{Package Options}{
+
+\describe{
+\item{\code{quarjar.base_url}}{Base URL for the Skilljar API.
+Default: \code{"https://api.skilljar.com"}.
+Set once per session to avoid repeating the argument:
+\code{options(quarjar.base_url = "https://api.skilljar.com")}}
+}
+}
+
 \section{Getting Started}{
 
 Set your Skilljar API key as an environment variable:

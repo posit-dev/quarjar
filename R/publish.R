@@ -9,7 +9,8 @@
 #'   Default reads from SKILLJAR_API_KEY environment variable.
 #' @param order Numeric. Position of the content item in the lesson. Default is 0.
 #' @param base_url Character. Base URL for the Skilljar API.
-#'   Default is "https://api.skilljar.com".
+#'   Defaults to the \code{quarjar.base_url} option, falling back to
+#'   \code{"https://api.skilljar.com"}.
 #'
 #' @return A list containing the response from the Skilljar API, including the
 #'   content item ID.
@@ -31,7 +32,7 @@ publish_html_content <- function(
   title,
   api_key = Sys.getenv("SKILLJAR_API_KEY"),
   order = 0,
-  base_url = "https://api.skilljar.com"
+  base_url = quarjar_base_url()
 ) {
   # Validate inputs
   if (missing(lesson_id) || is.null(lesson_id)) {
