@@ -96,12 +96,13 @@ This file provides context for AI assistants (like Claude) working on the quarja
 7. **GitHub Actions Automation**
    - Complete CI/CD pipeline via `inst/workflows/publish-quarto-to-skilljar.yml`
    - End-to-end: Quarto render → ZIP → GitHub Pages → Skilljar web package → lesson
-   - **Create path** (first publish): creates lesson, opens PR to write `skilljar_lesson_id` back to front matter
+   - **Create path** (first publish): creates lesson, commits `skilljar_lesson_id` directly to `main`
    - **Update path** (subsequent pushes): when `skilljar_lesson_id` is in front matter, PATCHes the existing lesson with a new web package and deletes the old one
    - Timestamped ZIP filenames for version management
    - Stores ZIPs in `skilljar-zips/` subdirectory (coexists with pkgdown sites, etc.)
    - Automatic cleanup (keeps 5 most recent ZIPs in subdirectory)
    - URL verification with retry logic (30 attempts over 5 minutes)
+   - R packages cached via `actions/cache` keyed on R version + workflow file hash
    - Users install via `use_skilljar_workflow()` helper function
 
 ## API Structure
@@ -151,8 +152,8 @@ HTTP Basic Auth:
 **Solution:** Set via `Sys.setenv(SKILLJAR_API_KEY = "key")`
 
 ### Issue 4: GitHub Actions workflow fails with "Package installation failed"
-**Cause:** Using `install_local()` instead of `install_github()` in workflow
-**Solution:** Workflow should use `remotes::install_github("posit-dev/quarjar")`
+**Cause:** `REPO_PAT` secret not set, or PAT has expired
+**Solution:** Add/renew the `REPO_PAT` secret (fine-grained PAT with Contents read/write); workflow uses `pak::pak("posit-dev/quarjar")` with `GITHUB_PAT` env var
 
 ### Issue 5: GitHub Pages URL not accessible immediately
 **Cause:** GitHub Pages deployment is asynchronous
@@ -270,7 +271,7 @@ The automated workflow (`inst/workflows/publish-quarto-to-skilljar.yml`) impleme
 4. **Verify** - Actively checks URL accessibility with retry logic
 5. **Create web package** - Makes Skilljar web package from public URL; polls until `READY`
 6. **Create lesson** - Creates WEB_PACKAGE lesson in specified course
-7. **PR writeback** - Opens PR to add `skilljar_lesson_id` to the `.qmd` front matter
+7. **Direct commit writeback** - Commits `skilljar_lesson_id` directly to `main` (tagged `[skip ci]`)
 
 **Pipeline Steps (update path — subsequent pushes, `skilljar_lesson_id` present):**
 1–5. Same as above
@@ -287,8 +288,9 @@ The automated workflow (`inst/workflows/publish-quarto-to-skilljar.yml`) impleme
 - **Retry logic**: 30 attempts over 5 minutes to verify GitHub Pages deployment
 - **URL verification**: Uses curl to actively check accessibility before proceeding
 - **Non-destructive**: Uses regular push (not `--force`), preserves other gh-pages content
-- **Serialized gh-pages pushes**: `max-parallel: 1` prevents concurrent matrix jobs from conflicting on the `gh-pages` branch
-- **PR writeback**: New lessons trigger a PR that writes `skilljar_lesson_id` back to the `.qmd`; merging activates the update-on-push path. Commit is tagged `[skip ci]` so merging doesn't re-trigger the workflow.
+- **Serialized jobs**: `max-parallel: 1` prevents concurrent matrix jobs from conflicting on both `gh-pages` and `main`
+- **Direct writeback**: New lessons commit `skilljar_lesson_id` directly to `main`; `git fetch` + `git reset --hard origin/main` before committing ensures correctness when multiple lessons are published in one push
+- **R package caching**: `actions/cache` keyed on OS + R version + workflow file hash; avoids reinstalling packages on every run
 
 **Front matter fields:**
 ```yaml
@@ -297,7 +299,7 @@ title: "My Lesson Title"          # used as lesson title
 skilljar_course_id: "abc123"      # required — files without this are silently skipped
 skilljar_package_title: "..."     # optional; defaults to title
 skilljar_lesson_order: 3          # optional; explicit position in course (create only)
-skilljar_lesson_id: "xyz789"      # written back by PR after first publish; triggers update path
+skilljar_lesson_id: "xyz789"      # written back directly to main after first publish; triggers update path
 ---
 ```
 
@@ -320,7 +322,8 @@ cp inst/workflows/publish-quarto-to-skilljar.yml .github/workflows/
 Users must configure:
 1. GitHub Pages (Settings → Pages → Deploy from `gh-pages` branch)
 2. Repository secret `SKILLJAR_API_KEY`
-3. Repository permissions to "Read and write" (Settings → Actions → General)
+3. Repository secret `REPO_PAT` (fine-grained PAT with Contents read/write and Pages read/write)
+4. Repository permissions to "Read and write" (Settings → Actions → General)
 
 See examples/GITHUB_ACTION_SETUP.md for complete setup instructions.
 
@@ -403,8 +406,9 @@ Key resources:
 10. **`update_lesson()`** sends only `content_web_package_id` in the PATCH body — no order, title, or other fields
 11. **`skilljar_lesson_id` front matter field** is the switch between create and update paths in the workflow; never set manually for new lessons
 12. **`skilljar_lesson_order` front matter field** controls lesson position on the create path only; ignored on updates
-13. **PR writeback** — after first publish the workflow opens a PR to add `skilljar_lesson_id` to the `.qmd`; the commit message includes `[skip ci]` so merging does not re-trigger the workflow
-14. **No `workflow_dispatch`** — the workflow is push-only; re-triggering a failed run requires an empty commit
+13. **Direct writeback** — after first publish the workflow commits `skilljar_lesson_id` directly to `main`; the commit message includes `[skip ci]` so it does not re-trigger the workflow; uses `git reset --hard origin/main` before committing to handle concurrent matrix jobs and mid-run user pushes
+14. **No `workflow_dispatch`** — the workflow is push-only; re-triggering a failed run requires a trivial change to the `.qmd` file (an empty commit does **not** work — the `paths: ["**/*.qmd"]` filter requires at least one `.qmd` to be among the changed files)
+15. **`REPO_PAT` secret required** — used as `GITHUB_PAT` for `pak::pak("posit-dev/quarjar")` installation; fine-grained PAT needs Contents read/write and Pages read/write
 
 When modifying code:
 - Maintain sensible defaults (api_key from env, type="MODULAR", etc.)
@@ -414,11 +418,13 @@ When modifying code:
 - Test with devtools::load_all() before committing
 
 When modifying GitHub Actions workflow:
-- Always use `remotes::install_github()` not `install_local()` (must work from any repo)
+- Always use `pak::pak()` with `GITHUB_PAT: ${{ secrets.REPO_PAT }}` for quarjar installation (must work from any repo)
 - Keep timestamped filenames for version management
 - Maintain retry logic for URL verification (GitHub Pages is async)
 - Keep cleanup logic (retain 5 most recent ZIPs in skilljar-zips/ subdirectory)
 - Use subdirectory isolation (skilljar-zips/) to coexist with other GitHub Pages content
 - Don't use `--force` push - preserve other gh-pages content
-- Keep `pull-requests: write` permission — needed for the PR writeback step
+- Keep `git reset --hard origin/main` before committing lesson ID writeback — handles concurrent matrix jobs and mid-run user pushes
+- Keep R package cache step (actions/cache@v4) keyed on OS + R version + workflow file hash
+- No `pull-requests: write` permission needed — writeback is a direct commit, not a PR
 - Update documentation if changing requirements

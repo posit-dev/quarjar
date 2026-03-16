@@ -220,8 +220,8 @@ delete_web_package(web_package_id = "pkg123")
 - `html_path`: Path to the HTML file to publish
 - `content_title`: Title for the content item within the lesson
 - `api_key`: Skilljar API key
-- `lesson_order`: Position in course (default: 0)
-- `content_order`: Position in lesson (default: 0)
+- `lesson_order`: Position in course (auto-detected if `NULL`; pass an integer to set explicitly)
+- `content_order`: Position of the content item within the lesson (default: 0)
 - `description_html`: Lesson description (default: "")
 - `base_url`: API base URL (optional)
 
@@ -396,9 +396,9 @@ The `publish-quarto-to-skilljar.yml` workflow provides an end-to-end solution th
 3. ✅ Publishes the ZIP to GitHub Pages in `skilljar-zips/` subdirectory
 4. ✅ Creates a Skilljar web package from the GitHub Pages URL
 5. ✅ Creates a WEB_PACKAGE lesson in your course
-6. ✅ Opens a PR to write `skilljar_lesson_id` back into your `.qmd` front matter
+6. ✅ Commits `skilljar_lesson_id` directly back to `main` (tagged `[skip ci]`)
 
-**Subsequent publishes (after merging the PR):**
+**Subsequent publishes:**
 
 Steps 1–5 run identically, then:
 
@@ -412,7 +412,8 @@ Steps 1–5 run identically, then:
 **Required Setup:**
 1. Enable GitHub Pages (Settings → Pages → Deploy from `gh-pages` branch)
 2. Add `SKILLJAR_API_KEY` secret (Settings → Secrets and variables → Actions)
-3. Set repository permissions to "Read and write" (Settings → Actions → General)
+3. Add `REPO_PAT` secret — a fine-grained PAT with Contents and Pages read/write (Settings → Secrets and variables → Actions)
+4. Set repository permissions to "Read and write" (Settings → Actions → General)
 
 #### Front Matter Configuration
 
@@ -424,15 +425,19 @@ title: "My Lesson Title"           # used as the lesson title in Skilljar
 skilljar_course_id: "abc123"       # required — files without this are skipped
 skilljar_package_title: "..."      # optional; defaults to title
 skilljar_lesson_order: 3           # optional; explicit position in course (create only)
-skilljar_lesson_id: "xyz789"       # added automatically by PR after first publish
+skilljar_lesson_id: "xyz789"       # committed directly to main after first publish
 ---
 ```
 
-`skilljar_lesson_id` is never set manually. The workflow writes it back via a PR after the first successful publish. Merging that PR activates the update-on-push path for future runs.
+`skilljar_lesson_id` is never set manually. The workflow commits it directly to `main` (with `[skip ci]`) after the first successful publish, activating the update-on-push path for future runs.
 
-To re-trigger a failed run without a content change:
+To re-trigger a failed run, make a trivial change to the `.qmd` file (the
+`paths` filter requires at least one `.qmd` to be modified — an empty commit
+will not trigger the workflow):
 ```bash
-git commit --allow-empty -m "re-trigger: republish to Skilljar"
+echo "" >> my-lesson.qmd
+git add my-lesson.qmd
+git commit -m "re-trigger: republish to Skilljar"
 git push
 ```
 
@@ -452,6 +457,68 @@ quarjar::use_skilljar_workflow()
 
 ```bash
 cp inst/workflows/publish-quarto-to-skilljar.yml .github/workflows/
+```
+
+## Lesson Ordering
+
+Every lesson in a Skilljar course has an `order` field — a **zero-based integer** that controls where the lesson appears in the course syllabus. Each value must be unique within a course; the API returns an error if you try to create a lesson with an order that is already taken.
+
+### Auto-detection (recommended)
+
+`create_lesson_with_content()` and `create_lesson_with_web_package()` both call `get_next_lesson_order()` internally when no order is specified. This appends the new lesson at the end of the course, avoiding conflicts.
+
+```r
+# Order is auto-detected — new lesson is appended at the end
+lesson <- create_lesson_with_web_package(
+  course_id = "abc123",
+  lesson_title = "Module 1",
+  web_package_id = pkg$id
+)
+```
+
+You can also call `get_next_lesson_order()` directly if you need the value ahead of time:
+
+```r
+next_order <- get_next_lesson_order(course_id = "abc123")
+cat("Next available order:", next_order, "\n")
+```
+
+### Manual ordering
+
+Pass an explicit integer to place a lesson at a specific position. If the order is already taken the API will return an error.
+
+```r
+# Place lesson at position 2 (third in the course, 0-indexed)
+lesson <- create_lesson_with_web_package(
+  course_id = "abc123",
+  lesson_title = "Module 1",
+  web_package_id = pkg$id,
+  order = 2
+)
+```
+
+For the GitHub Actions workflow, use `skilljar_lesson_order` in the `.qmd` front matter:
+
+```yaml
+---
+title: "Module 1"
+skilljar_course_id: "abc123"
+skilljar_lesson_order: 2   # sets position on first publish; ignored on updates
+---
+```
+
+If omitted, the workflow auto-detects the next available order, same as the R functions.
+
+### Updating a lesson preserves its order
+
+`update_lesson()` sends only `content_web_package_id` in the PATCH request. The lesson's position in the course is unchanged when you update its web package content — intentionally, so republishing a lesson never moves it.
+
+```r
+# Replaces the web package; order, title, and all other fields are left alone
+update_lesson(
+  lesson_id = "lesson-id",
+  content_web_package_id = "new-pkg-id"
+)
 ```
 
 ## Authentication

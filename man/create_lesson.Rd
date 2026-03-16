@@ -27,7 +27,13 @@ Other options: "ASSET", "HTML", "WEB_PACKAGE", "QUIZ", "VILT", "SECTION".}
 \item{api_key}{Character. Skilljar API key for authentication.
 Default reads from SKILLJAR_API_KEY environment variable.}
 
-\item{order}{Numeric. Position of the lesson in the course. Default is 0.}
+\item{order}{Numeric. Position of the lesson in the course. Default is 0.
+Must be unique within the course — the API returns an error if another
+lesson already holds the same order value. Consider using
+\code{\link{create_lesson_with_content}} or
+\code{\link{create_lesson_with_web_package}}, which call
+\code{\link{get_next_lesson_order}} automatically when \code{order} is
+not specified.}
 
 \item{description_html}{Character. HTML description of the lesson. Default is empty.}
 
