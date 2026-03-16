@@ -46,22 +46,22 @@
 #' @export
 ci_generate_zip <- function(
   qmd_file = Sys.getenv("QMD_FILE"),
-  quiet    = FALSE
+  quiet = FALSE
 ) {
   if (!nchar(qmd_file)) {
     rlang::abort("qmd_file is required (set QMD_FILE env var or pass directly)")
   }
 
-  zip_path  <- generate_zip_package(qmd_file, quiet = quiet)
+  zip_path <- generate_zip_package(qmd_file, quiet = quiet)
 
-  base_name            <- tools::file_path_sans_ext(basename(zip_path))
-  timestamp            <- format(Sys.time(), "%Y%m%d-%H%M%S")
+  base_name <- tools::file_path_sans_ext(basename(zip_path))
+  timestamp <- format(Sys.time(), "%Y%m%d-%H%M%S")
   timestamped_filename <- sprintf("%s-%s.zip", base_name, timestamp)
-  timestamped_path     <- file.path(dirname(zip_path), timestamped_filename)
+  timestamped_path <- file.path(dirname(zip_path), timestamped_filename)
 
   file.rename(zip_path, timestamped_path)
 
-  .ci_write_output("zip_path",     timestamped_path)
+  .ci_write_output("zip_path", timestamped_path)
   .ci_write_output("zip_filename", timestamped_filename)
 
   cli::cli_alert_success("ZIP package created: {timestamped_path}")
@@ -113,12 +113,12 @@ ci_generate_zip <- function(
 #'
 #' @export
 ci_create_web_package <- function(
-  zip_url           = Sys.getenv("ZIP_URL"),
-  package_title     = Sys.getenv("PACKAGE_TITLE"),
-  lesson_title      = Sys.getenv("LESSON_TITLE"),
-  lesson_id         = Sys.getenv("LESSON_ID"),
-  api_key           = Sys.getenv("SKILLJAR_API_KEY"),
-  base_url          = Sys.getenv("BASE_URL", unset = "https://api.skilljar.com"),
+  zip_url = Sys.getenv("ZIP_URL"),
+  package_title = Sys.getenv("PACKAGE_TITLE"),
+  lesson_title = Sys.getenv("LESSON_TITLE"),
+  lesson_id = Sys.getenv("LESSON_ID"),
+  api_key = Sys.getenv("SKILLJAR_API_KEY"),
+  base_url = Sys.getenv("BASE_URL", unset = "https://api.skilljar.com"),
   max_poll_attempts = 12L
 ) {
   if (!nchar(zip_url)) {
@@ -126,7 +126,9 @@ ci_create_web_package <- function(
   }
 
   # Resolve package title
-  if (!nchar(package_title)) package_title <- lesson_title
+  if (!nchar(package_title)) {
+    package_title <- lesson_title
+  }
   if (!nchar(package_title)) {
     rlang::abort("package_title or lesson_title must be provided")
   }
@@ -134,16 +136,16 @@ ci_create_web_package <- function(
   cli::cli_h2("Creating web package")
   pkg <- create_web_package(
     content_url = zip_url,
-    title       = package_title,
-    api_key     = api_key,
-    base_url    = base_url
+    title = package_title,
+    api_key = api_key,
+    base_url = base_url
   )
   cli::cli_alert_info("Web package ID: {pkg$id}")
 
   # Poll until READY
   cli::cli_h2("Waiting for web package processing")
   attempt <- 1L
-  ready   <- FALSE
+  ready <- FALSE
 
   while (attempt <= max_poll_attempts) {
     cli::cli_alert_info("Polling attempt {attempt}/{max_poll_attempts}")
@@ -152,8 +154,8 @@ ci_create_web_package <- function(
     pkg_status <- tryCatch(
       get_web_package(
         web_package_id = pkg$id,
-        api_key        = api_key,
-        base_url       = base_url
+        api_key = api_key,
+        base_url = base_url
       ),
       error = function(e) {
         cli::cli_alert_warning("Error checking status: {conditionMessage(e)}")
@@ -184,7 +186,7 @@ ci_create_web_package <- function(
   if (nchar(lesson_id) > 0) {
     lesson_existing <- get_lesson(
       lesson_id,
-      api_key  = api_key,
+      api_key = api_key,
       base_url = base_url
     )
     old_pkg_id <- lesson_existing$content_web_package_id
@@ -247,23 +249,23 @@ ci_create_web_package <- function(
 #'
 #' @export
 ci_create_or_update_lesson <- function(
-  lesson_id          = Sys.getenv("LESSON_ID"),
-  course_id          = Sys.getenv("COURSE_ID"),
-  lesson_title       = Sys.getenv("LESSON_TITLE"),
+  lesson_id = Sys.getenv("LESSON_ID"),
+  course_id = Sys.getenv("COURSE_ID"),
+  lesson_title = Sys.getenv("LESSON_TITLE"),
   new_web_package_id = Sys.getenv("NEW_WEB_PACKAGE_ID"),
   display_fullscreen = NULL,
-  lesson_order       = NULL,
-  api_key            = Sys.getenv("SKILLJAR_API_KEY"),
-  base_url           = Sys.getenv("BASE_URL", unset = "https://api.skilljar.com")
+  lesson_order = NULL,
+  api_key = Sys.getenv("SKILLJAR_API_KEY"),
+  base_url = Sys.getenv("BASE_URL", unset = "https://api.skilljar.com")
 ) {
   if (nchar(lesson_id) > 0) {
     # UPDATE PATH
     cli::cli_h2("Updating existing lesson")
     lesson <- update_lesson(
-      lesson_id              = lesson_id,
+      lesson_id = lesson_id,
       content_web_package_id = new_web_package_id,
-      api_key                = api_key,
-      base_url               = base_url
+      api_key = api_key,
+      base_url = base_url
     )
     .ci_write_output("is_new_lesson", "false")
   } else {
@@ -285,13 +287,13 @@ ci_create_or_update_lesson <- function(
     }
 
     lesson <- create_lesson_with_web_package(
-      course_id          = course_id,
-      lesson_title       = lesson_title,
-      web_package_id     = new_web_package_id,
+      course_id = course_id,
+      lesson_title = lesson_title,
+      web_package_id = new_web_package_id,
       display_fullscreen = display_fullscreen,
-      order              = lesson_order,
-      api_key            = api_key,
-      base_url           = base_url
+      order = lesson_order,
+      api_key = api_key,
+      base_url = base_url
     )
     .ci_write_output("is_new_lesson", "true")
   }
@@ -331,14 +333,14 @@ ci_create_or_update_lesson <- function(
 #' @export
 ci_delete_old_web_package <- function(
   old_web_package_id = Sys.getenv("OLD_WEB_PACKAGE_ID"),
-  api_key            = Sys.getenv("SKILLJAR_API_KEY"),
-  base_url           = Sys.getenv("BASE_URL", unset = "https://api.skilljar.com")
+  api_key = Sys.getenv("SKILLJAR_API_KEY"),
+  base_url = Sys.getenv("BASE_URL", unset = "https://api.skilljar.com")
 ) {
   tryCatch(
     delete_web_package(
       web_package_id = old_web_package_id,
-      api_key        = api_key,
-      base_url       = base_url
+      api_key = api_key,
+      base_url = base_url
     ),
     error = function(e) {
       cli::cli_alert_warning(
@@ -384,20 +386,22 @@ ci_delete_old_web_package <- function(
 #'
 #' @export
 ci_write_lesson_id <- function(
-  qmd_file  = Sys.getenv("QMD_FILE"),
+  qmd_file = Sys.getenv("QMD_FILE"),
   lesson_id = Sys.getenv("LESSON_ID")
 ) {
   if (!nchar(qmd_file)) {
     rlang::abort("qmd_file is required (set QMD_FILE env var or pass directly)")
   }
   if (!nchar(lesson_id)) {
-    rlang::abort("lesson_id is required (set LESSON_ID env var or pass directly)")
+    rlang::abort(
+      "lesson_id is required (set LESSON_ID env var or pass directly)"
+    )
   }
   if (!file.exists(qmd_file)) {
     rlang::abort(paste("File not found:", qmd_file))
   }
 
-  lines   <- readLines(qmd_file, warn = FALSE)
+  lines <- readLines(qmd_file, warn = FALSE)
   sep_idx <- which(grepl("^---\\s*$", lines))
 
   if (length(sep_idx) < 2) {
@@ -408,7 +412,7 @@ ci_write_lesson_id <- function(
 
   if (any(grepl("^skilljar_lesson_id:", fm_lines))) {
     cli::cli_alert_info(
-      "skilljar_lesson_id already present in {qmd_file} — no changes written"
+      "skilljar_lesson_id already present in {qmd_file} - no changes written"
     )
     return(invisible(FALSE))
   }
