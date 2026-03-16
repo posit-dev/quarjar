@@ -311,7 +311,9 @@ ci_create_or_update_lesson <- function(
 #'
 #' Attempts to delete a web package, emitting a warning (rather than an error)
 #' on failure so that the workflow step does not fail.  Intended for the
-#' clean-up step on the update path.
+#' clean-up step on the update path.  When \code{old_web_package_id} is empty
+#' (create path), the function exits immediately with an informational message
+#' rather than making an API call.
 #'
 #' @section Environment variables:
 #' \describe{
@@ -342,6 +344,11 @@ ci_delete_old_web_package <- function(
   api_key = Sys.getenv("SKILLJAR_API_KEY"),
   base_url = Sys.getenv("BASE_URL", unset = quarjar_base_url())
 ) {
+  if (!nchar(old_web_package_id)) {
+    cli::cli_alert_info("No old web package to delete")
+    return(invisible(NULL))
+  }
+
   tryCatch(
     delete_web_package(
       web_package_id = old_web_package_id,
