@@ -142,25 +142,7 @@ jobs:
           QMD_FILE: ${{ matrix.qmd_file }}
         run: |
           library(quarjar)
-
-          qmd_file <- Sys.getenv("QMD_FILE")
-
-          # Generate ZIP package
-          zip_path <- generate_zip_package(qmd_file, quiet = FALSE)
-
-          # Create timestamped filename for uniqueness
-          base_name <- tools::file_path_sans_ext(basename(zip_path))
-          timestamp <- format(Sys.time(), "%Y%m%d-%H%M%S")
-          timestamped_filename <- sprintf("%s-%s.zip", base_name, timestamp)
-
-          # Rename the file
-          timestamped_path <- file.path(dirname(zip_path), timestamped_filename)
-          file.rename(zip_path, timestamped_path)
-
-          cat("zip_path=", timestamped_path, "\n", sep = "", file = Sys.getenv("GITHUB_OUTPUT"), append = TRUE)
-          cat("zip_filename=", timestamped_filename, "\n", sep = "", file = Sys.getenv("GITHUB_OUTPUT"), append = TRUE)
-
-          message("ZIP package created: ", timestamped_path)
+          ci_generate_zip()
         shell: Rscript {0}
 
       - name: Deploy ZIP to GitHub Pages
@@ -256,82 +238,7 @@ jobs:
           ZIP_URL: ${{ steps.wait-pages.outputs.zip_url }}
         run: |
           library(quarjar)
-
-          # Get verified GitHub Pages URL from previous step
-          zip_url <- Sys.getenv("ZIP_URL")
-
-          cat("GitHub Pages URL:", zip_url, "\n")
-
-          # Use package title if provided, otherwise use lesson title
-          package_title <- Sys.getenv("PACKAGE_TITLE")
-          if (package_title == "") {
-            package_title <- Sys.getenv("LESSON_TITLE")
-          }
-
-          # Step 1: Create web package from GitHub Pages URL
-          cat("\n=== Creating web package ===\n")
-          pkg <- create_web_package(
-            content_url = zip_url,
-            title = package_title,
-            api_key = Sys.getenv("SKILLJAR_API_KEY"),
-            base_url = Sys.getenv("BASE_URL")
-          )
-
-          cat("Web package ID:", pkg$id, "\n")
-
-          # Step 2: Wait for Skilljar to process the package
-          cat("\n=== Waiting for web package processing ===\n")
-          max_attempts <- 12  # 2 minutes total
-          attempt <- 1
-
-          while (attempt <= max_attempts) {
-            cat("Attempt", attempt, "of", max_attempts, "\n")
-            Sys.sleep(10)
-
-            pkg_status <- tryCatch(
-              get_web_package(
-                web_package_id = pkg$id,
-                api_key = Sys.getenv("SKILLJAR_API_KEY"),
-                base_url = Sys.getenv("BASE_URL")
-              ),
-              error = function(e) {
-                cat("Error checking status:", conditionMessage(e), "\n")
-                NULL
-              }
-            )
-
-            if (!is.null(pkg_status)) {
-              cat("Package state:", pkg_status$state, "\n")
-              if (pkg_status$state == "READY") {
-                cat("Web package processing complete!\n")
-                break
-              }
-            }
-
-            attempt <- attempt + 1
-          }
-
-          if (attempt > max_attempts) {
-            warning("Web package may still be processing. Attempting to create lesson anyway...")
-          }
-
-          # Step 3: If on the update path, capture the old web package ID
-          lesson_id <- Sys.getenv("LESSON_ID")
-          old_pkg_id <- ""
-          if (nchar(lesson_id) > 0) {
-            lesson_existing <- get_lesson(
-              lesson_id,
-              api_key = Sys.getenv("SKILLJAR_API_KEY"),
-              base_url = Sys.getenv("BASE_URL")
-            )
-            old_pkg_id <- lesson_existing$content_web_package_id
-            if (is.null(old_pkg_id) || is.na(old_pkg_id)) old_pkg_id <- ""
-          }
-
-          cat("new_web_package_id=", pkg$id, "\n", sep = "",
-              file = Sys.getenv("GITHUB_OUTPUT"), append = TRUE)
-          cat("old_web_package_id=", old_pkg_id, "\n", sep = "",
-              file = Sys.getenv("GITHUB_OUTPUT"), append = TRUE)
+          ci_create_web_package()
         shell: Rscript {0}
 
       - name: Create or update lesson
@@ -348,39 +255,7 @@ jobs:
             ${{ steps.create-web-package.outputs.new_web_package_id }}
         run: |
           library(quarjar)
-
-          lesson_id <- Sys.getenv("LESSON_ID")
-
-          if (nchar(lesson_id) > 0) {
-            # UPDATE PATH
-            cat("\n=== Updating existing lesson ===\n")
-            lesson <- quarjar::update_lesson(
-              lesson_id              = lesson_id,
-              content_web_package_id = Sys.getenv("NEW_WEB_PACKAGE_ID"),
-              api_key                = Sys.getenv("SKILLJAR_API_KEY"),
-              base_url               = Sys.getenv("BASE_URL")
-            )
-            cat("is_new_lesson=false\n", file = Sys.getenv("GITHUB_OUTPUT"), append = TRUE)
-          } else {
-            # CREATE PATH
-            cat("\n=== Creating new lesson ===\n")
-            lesson_order_raw <- Sys.getenv("LESSON_ORDER")
-            lesson_order <- if (nchar(lesson_order_raw) > 0) as.integer(lesson_order_raw) else NULL
-
-            lesson <- quarjar::create_lesson_with_web_package(
-              course_id          = Sys.getenv("COURSE_ID"),
-              lesson_title       = Sys.getenv("LESSON_TITLE"),
-              web_package_id     = Sys.getenv("NEW_WEB_PACKAGE_ID"),
-              display_fullscreen = tolower(Sys.getenv("DISPLAY_FULLSCREEN")) == "true",
-              order              = lesson_order,
-              api_key            = Sys.getenv("SKILLJAR_API_KEY"),
-              base_url           = Sys.getenv("BASE_URL")
-            )
-            cat("is_new_lesson=true\n", file = Sys.getenv("GITHUB_OUTPUT"), append = TRUE)
-          }
-
-          cat("lesson_id=", lesson$id, "\n", sep = "",
-              file = Sys.getenv("GITHUB_OUTPUT"), append = TRUE)
+          ci_create_or_update_lesson()
         shell: Rscript {0}
 
       - name: Delete old web package
@@ -394,17 +269,7 @@ jobs:
             ${{ steps.create-web-package.outputs.old_web_package_id }}
         run: |
           library(quarjar)
-
-          tryCatch(
-            quarjar::delete_web_package(
-              web_package_id = Sys.getenv("OLD_WEB_PACKAGE_ID"),
-              api_key        = Sys.getenv("SKILLJAR_API_KEY"),
-              base_url       = Sys.getenv("BASE_URL")
-            ),
-            error = function(e) {
-              warning("Could not delete old web package: ", conditionMessage(e))
-            }
-          )
+          ci_delete_old_web_package()
         shell: Rscript {0}
 
       - name: Write lesson ID back to main
@@ -413,9 +278,6 @@ jobs:
           QMD_FILE: ${{ matrix.qmd_file }}
           LESSON_ID: ${{ steps.create-or-update-lesson.outputs.lesson_id }}
         run: |
-          QMD_FILE="${QMD_FILE}"
-          LESSON_ID="${LESSON_ID}"
-
           # Anchor to origin/main (job may be on gh-pages at this point).
           # reset --hard ensures the local branch reflects any commits pushed by
           # earlier matrix jobs (max-parallel: 1 serializes jobs but each job
@@ -424,47 +286,14 @@ jobs:
           git checkout main
           git reset --hard origin/main
 
-          # Patch the front matter
-          python3 << 'PYEOF'
-          import re, os, sys
-
-          qmd_file = os.environ['QMD_FILE']
-          lesson_id = os.environ['LESSON_ID']
-
-          with open(qmd_file, 'r') as f:
-              content = f.read()
-
-          sep = re.compile(r'^---\s*$', re.MULTILINE)
-          parts = sep.split(content, maxsplit=2)
-
-          if len(parts) < 3:
-              sys.exit(f"No front matter found in {qmd_file}")
-
-          if 'skilljar_lesson_id' in parts[1]:
-              print(f"skilljar_lesson_id already present in {qmd_file} — no changes written", file=sys.stderr)
-              sys.exit(0)   # file left unmodified; shell detects this via git diff below
-
-          fm = parts[1].rstrip() + f'\nskilljar_lesson_id: "{lesson_id}"\n'
-          new_content = f'---{fm}---{parts[2]}'
-
-          with open(qmd_file, 'w') as f:
-              f.write(new_content)
-
-          print(f"Wrote skilljar_lesson_id to {qmd_file}")
-          PYEOF
-
-          # Fail fast on any Python error (missing front matter, IO error, etc.)
-          PYEXIT=$?
-          if [ $PYEXIT -ne 0 ]; then
-            echo "Error: front matter patch script exited with code ${PYEXIT}"
-            exit 1
-          fi
+          # Patch the front matter via R (no Python dependency)
+          Rscript -e "library(quarjar); ci_write_lesson_id()"
 
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          # If Python left the file unchanged (skilljar_lesson_id was already
-          # present), git diff returns 0 (no diff). Nothing to do.
+          # If ci_write_lesson_id() left the file unchanged (skilljar_lesson_id
+          # was already present), git diff returns 0. Nothing to do.
           if git diff --quiet "${QMD_FILE}"; then
             echo "No front matter changes — skipping commit"
             exit 0
