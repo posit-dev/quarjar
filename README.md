@@ -396,9 +396,9 @@ The `publish-quarto-to-skilljar.yml` workflow provides an end-to-end solution th
 3. ✅ Publishes the ZIP to GitHub Pages in `skilljar-zips/` subdirectory
 4. ✅ Creates a Skilljar web package from the GitHub Pages URL
 5. ✅ Creates a WEB_PACKAGE lesson in your course
-6. ✅ Opens a PR to write `skilljar_lesson_id` back into your `.qmd` front matter
+6. ✅ Commits `skilljar_lesson_id` directly back to `main` (tagged `[skip ci]`)
 
-**Subsequent publishes (after merging the PR):**
+**Subsequent publishes:**
 
 Steps 1–5 run identically, then:
 
@@ -412,7 +412,8 @@ Steps 1–5 run identically, then:
 **Required Setup:**
 1. Enable GitHub Pages (Settings → Pages → Deploy from `gh-pages` branch)
 2. Add `SKILLJAR_API_KEY` secret (Settings → Secrets and variables → Actions)
-3. Set repository permissions to "Read and write" (Settings → Actions → General)
+3. Add `REPO_PAT` secret — a fine-grained PAT with Contents and Pages read/write (Settings → Secrets and variables → Actions)
+4. Set repository permissions to "Read and write" (Settings → Actions → General)
 
 #### Front Matter Configuration
 
@@ -424,15 +425,19 @@ title: "My Lesson Title"           # used as the lesson title in Skilljar
 skilljar_course_id: "abc123"       # required — files without this are skipped
 skilljar_package_title: "..."      # optional; defaults to title
 skilljar_lesson_order: 3           # optional; explicit position in course (create only)
-skilljar_lesson_id: "xyz789"       # added automatically by PR after first publish
+skilljar_lesson_id: "xyz789"       # committed directly to main after first publish
 ---
 ```
 
-`skilljar_lesson_id` is never set manually. The workflow writes it back via a PR after the first successful publish. Merging that PR activates the update-on-push path for future runs.
+`skilljar_lesson_id` is never set manually. The workflow commits it directly to `main` (with `[skip ci]`) after the first successful publish, activating the update-on-push path for future runs.
 
-To re-trigger a failed run without a content change:
+To re-trigger a failed run, make a trivial change to the `.qmd` file (the
+`paths` filter requires at least one `.qmd` to be modified — an empty commit
+will not trigger the workflow):
 ```bash
-git commit --allow-empty -m "re-trigger: republish to Skilljar"
+echo "" >> my-lesson.qmd
+git add my-lesson.qmd
+git commit -m "re-trigger: republish to Skilljar"
 git push
 ```
 
