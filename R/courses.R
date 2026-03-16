@@ -5,7 +5,8 @@
 #' @param course_id Character. The ID of the Skilljar course.
 #' @param api_key Character. Skilljar API key for authentication.
 #' @param base_url Character. Base URL for the Skilljar API.
-#'   Default is "https://api.skilljar.com".
+#'   Defaults to the \code{quarjar.base_url} option, falling back to
+#'   \code{"https://api.skilljar.com"}.
 #'
 #' @return A list containing the course details.
 #'
@@ -22,7 +23,7 @@
 get_course <- function(
   course_id,
   api_key = Sys.getenv("SKILLJAR_API_KEY"),
-  base_url = "https://api.skilljar.com"
+  base_url = quarjar_base_url()
 ) {
   if (missing(course_id) || is.null(course_id)) {
     rlang::abort("course_id is required")
@@ -56,7 +57,8 @@ get_course <- function(
 #' @param course_id Character. The ID of the Skilljar course.
 #' @param api_key Character. Skilljar API key for authentication.
 #' @param base_url Character. Base URL for the Skilljar API.
-#'   Default is "https://api.skilljar.com".
+#'   Defaults to the \code{quarjar.base_url} option, falling back to
+#'   \code{"https://api.skilljar.com"}.
 #'
 #' @return A list containing the lessons.
 #'
@@ -73,7 +75,7 @@ get_course <- function(
 list_lessons <- function(
   course_id,
   api_key = Sys.getenv("SKILLJAR_API_KEY"),
-  base_url = "https://api.skilljar.com"
+  base_url = quarjar_base_url()
 ) {
   if (missing(course_id) || is.null(course_id)) {
     rlang::abort("course_id is required")
@@ -107,7 +109,8 @@ list_lessons <- function(
 #' @param course_id Character. The ID of the Skilljar course.
 #' @param api_key Character. Skilljar API key for authentication.
 #' @param base_url Character. Base URL for the Skilljar API.
-#'   Default is "https://api.skilljar.com".
+#'   Defaults to the \code{quarjar.base_url} option, falling back to
+#'   \code{"https://api.skilljar.com"}.
 #'
 #' @return Integer. The next available order number.
 #'
@@ -123,7 +126,7 @@ list_lessons <- function(
 get_next_lesson_order <- function(
   course_id,
   api_key = Sys.getenv("SKILLJAR_API_KEY"),
-  base_url = "https://api.skilljar.com"
+  base_url = quarjar_base_url()
 ) {
   lessons <- list_lessons(
     course_id = course_id,

@@ -21,7 +21,8 @@
 #'   fullscreen mode. When NULL (default), the field is omitted from the request
 #'   and Skilljar uses its own default.
 #' @param base_url Character. Base URL for the Skilljar API.
-#'   Default is "https://api.skilljar.com".
+#'   Defaults to the \code{quarjar.base_url} option, falling back to
+#'   \code{"https://api.skilljar.com"}.
 #'
 #' @return A list containing the created lesson details.
 #'
@@ -51,7 +52,7 @@ create_lesson <- function(
   description_html = "",
   optional = FALSE,
   display_fullscreen = NULL,
-  base_url = "https://api.skilljar.com"
+  base_url = quarjar_base_url()
 ) {
   # Validate inputs
   if (missing(course_id) || is.null(course_id)) {
@@ -130,7 +131,8 @@ create_lesson <- function(
 #'   fullscreen mode. When NULL (default), the field is omitted from the request
 #'   and Skilljar uses its own default.
 #' @param base_url Character. Base URL for the Skilljar API.
-#'   Default is "https://api.skilljar.com".
+#'   Defaults to the \code{quarjar.base_url} option, falling back to
+#'   \code{"https://api.skilljar.com"}.
 #'
 #' @return A list with two elements: `lesson` (the created lesson) and
 #'   `content_item` (the created content item).
@@ -160,7 +162,7 @@ create_lesson_with_content <- function(
   content_order = 0,
   description_html = "",
   display_fullscreen = NULL,
-  base_url = "https://api.skilljar.com"
+  base_url = quarjar_base_url()
 ) {
   # Auto-detect next order if not specified
   if (is.null(lesson_order)) {

@@ -7,7 +7,7 @@
 list_lessons(
   course_id,
   api_key = Sys.getenv("SKILLJAR_API_KEY"),
-  base_url = "https://api.skilljar.com"
+  base_url = quarjar_base_url()
 )
 }
 \arguments{
@@ -16,7 +16,8 @@ list_lessons(
 \item{api_key}{Character. Skilljar API key for authentication.}
 
 \item{base_url}{Character. Base URL for the Skilljar API.
-Default is "https://api.skilljar.com".}
+Defaults to the \code{quarjar.base_url} option, falling back to
+\code{"https://api.skilljar.com"}.}
 }
 \value{
 A list containing the lessons.

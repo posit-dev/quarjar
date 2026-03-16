@@ -58,8 +58,9 @@ This file provides context for AI assistants (like Claude) working on the quarja
    - `get_asset()`, `list_assets()`, `delete_asset()` - Manage assets
    - **Note:** Assets are separate from web packages
 
-10. **Error Handling** (`R/utils.R`)
+10. **Error Handling & Utilities** (`R/utils.R`)
     - `perform_request()` - Centralized error handling with formatted API responses
+    - `quarjar_base_url()` - Internal helper returning `getOption("quarjar.base_url", "https://api.skilljar.com")`
     - Uses cli package for cross-platform symbols
 
 ### Key Design Decisions
@@ -74,26 +75,32 @@ This file provides context for AI assistants (like Claude) working on the quarja
    - All functions default to `Sys.getenv("SKILLJAR_API_KEY")`
    - Users set once, use everywhere
 
-3. **Automatic Order Detection**
+3. **Base URL Global Option**
+   - All functions resolve `base_url` via `quarjar_base_url()` (internal helper in `utils.R`)
+   - `quarjar_base_url()` returns `getOption("quarjar.base_url", default = "https://api.skilljar.com")`
+   - Users can override once per session: `options(quarjar.base_url = "...")`
+   - CI functions (`ci_*`) use `Sys.getenv("BASE_URL", unset = quarjar_base_url())`, so the `BASE_URL` env var still takes priority in GitHub Actions
+
+5. **Automatic Order Detection**
    - `create_lesson_with_content()` auto-detects next lesson position
    - Prevents "order already exists" errors
 
-4. **CLI Package for Messages**
+6. **CLI Package for Messages**
    - Uses `cli::cli_alert_success()` instead of UTF-8 characters
    - Better cross-platform compatibility (Windows, etc.)
 
-5. **Web Package Processing**
+7. **Web Package Processing**
    - Web packages are created via `create_web_package()` with pre-hosted ZIP URLs
    - Skilljar processes packages asynchronously
    - Lesson creation may fail if attempted before processing completes
    - No direct file upload - URLs must be publicly accessible
 
-6. **Assets vs Web Packages**
+8. **Assets vs Web Packages**
    - Assets are for individual files (PDFs, images, videos) within lessons
    - Web packages are standalone packaged content (SCORM, HTML5)
    - These are separate features with different use cases
 
-7. **GitHub Actions Automation**
+9. **GitHub Actions Automation**
    - Complete CI/CD pipeline via `inst/workflows/publish-quarto-to-skilljar.yml`
    - End-to-end: Quarto render → ZIP → GitHub Pages → Skilljar web package → lesson
    - **Create path** (first publish): creates lesson, commits `skilljar_lesson_id` directly to `main`
@@ -175,7 +182,7 @@ HTTP Basic Auth:
 
 2. **Default parameters:**
    - `api_key = Sys.getenv("SKILLJAR_API_KEY")`
-   - `base_url = "https://api.skilljar.com"`
+   - `base_url = quarjar_base_url()` (reads `quarjar.base_url` option, falls back to `"https://api.skilljar.com"`)
 
 3. **Error handling:**
    - Use `perform_request()` helper for API calls
@@ -398,20 +405,21 @@ Key resources:
 2. **Environment variable** remains `SKILLJAR_API_KEY` (not QUARJAR_API_KEY)
 3. **Default lesson type** is MODULAR - most common use case
 4. **Auto-order detection** prevents common user errors
-5. **cli package** used instead of UTF-8 for cross-platform compatibility
-6. **Invisible returns** on main functions - they succeed silently, use cli alerts for feedback
-7. **GitHub Actions workflow** lives in `inst/workflows/` (not `.github/workflows/`) because it's for users to install in their repos
-8. **Timestamped ZIPs** enable version tracking and prevent conflicts on GitHub Pages
-9. **URL verification** critical - GitHub Pages deployment is asynchronous, must actively check accessibility
-10. **`update_lesson()`** sends only `content_web_package_id` in the PATCH body — no order, title, or other fields
-11. **`skilljar_lesson_id` front matter field** is the switch between create and update paths in the workflow; never set manually for new lessons
-12. **`skilljar_lesson_order` front matter field** controls lesson position on the create path only; ignored on updates
-13. **Direct writeback** — after first publish the workflow commits `skilljar_lesson_id` directly to `main`; the commit message includes `[skip ci]` so it does not re-trigger the workflow; uses `git reset --hard origin/main` before committing to handle concurrent matrix jobs and mid-run user pushes
-14. **No `workflow_dispatch`** — the workflow is push-only; re-triggering a failed run requires a trivial change to the `.qmd` file (an empty commit does **not** work — the `paths: ["**/*.qmd"]` filter requires at least one `.qmd` to be among the changed files)
-15. **`REPO_PAT` secret required** — used as `GITHUB_PAT` for `pak::pak("posit-dev/quarjar")` installation; fine-grained PAT needs Contents read/write and Pages read/write
+5. **`quarjar.base_url` option** controls the API base URL globally; set via `options(quarjar.base_url = "...")` — all public functions and `quarjar_base_url()` (internal, `utils.R`) respect it; CI functions additionally check the `BASE_URL` env var first
+6. **cli package** used instead of UTF-8 for cross-platform compatibility
+7. **Invisible returns** on main functions - they succeed silently, use cli alerts for feedback
+8. **GitHub Actions workflow** lives in `inst/workflows/` (not `.github/workflows/`) because it's for users to install in their repos
+9. **Timestamped ZIPs** enable version tracking and prevent conflicts on GitHub Pages
+10. **URL verification** critical - GitHub Pages deployment is asynchronous, must actively check accessibility
+11. **`update_lesson()`** sends only `content_web_package_id` in the PATCH body — no order, title, or other fields
+12. **`skilljar_lesson_id` front matter field** is the switch between create and update paths in the workflow; never set manually for new lessons
+13. **`skilljar_lesson_order` front matter field** controls lesson position on the create path only; ignored on updates
+14. **Direct writeback** — after first publish the workflow commits `skilljar_lesson_id` directly to `main`; the commit message includes `[skip ci]` so it does not re-trigger the workflow; uses `git reset --hard origin/main` before committing to handle concurrent matrix jobs and mid-run user pushes
+15. **No `workflow_dispatch`** — the workflow is push-only; re-triggering a failed run requires a trivial change to the `.qmd` file (an empty commit does **not** work — the `paths: ["**/*.qmd"]` filter requires at least one `.qmd` to be among the changed files)
+16. **`REPO_PAT` secret required** — used as `GITHUB_PAT` for `pak::pak("posit-dev/quarjar")` installation; fine-grained PAT needs Contents read/write and Pages read/write
 
 When modifying code:
-- Maintain sensible defaults (api_key from env, type="MODULAR", etc.)
+- Maintain sensible defaults (api_key from env, type="MODULAR", base_url via quarjar_base_url(), etc.)
 - Use perform_request() for all API calls
 - Add cli alerts for success feedback
 - Update both function docs and examples

@@ -113,6 +113,16 @@ publish_html_content(
 )
 ```
 
+### Package Options
+
+Set the `quarjar.base_url` option once per session instead of passing `base_url` to every function call:
+
+```r
+options(quarjar.base_url = "https://api.skilljar.com")
+```
+
+The built-in default is `"https://api.skilljar.com"`, so this option only needs to be set if you are targeting a different endpoint.
+
 ## Generating ZIP Packages
 
 ### `generate_zip_package()`
@@ -254,7 +264,7 @@ Publish HTML content to an existing MODULAR lesson. **Note:** The lesson must be
 - `title`: Title for the content item
 - `api_key`: Skilljar API key for authentication
 - `order`: Position of the content item in the lesson (default: 0)
-- `base_url`: Skilljar API base URL (default: "https://api.skilljar.com")
+- `base_url`: Skilljar API base URL (defaults to the `quarjar.base_url` option, then `"https://api.skilljar.com"`)
 
 **Returns:** A list with the created content item details, including its ID.
 

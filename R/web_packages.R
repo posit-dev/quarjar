@@ -11,7 +11,8 @@
 #' @param api_key Character. Skilljar API key for authentication.
 #'   Default reads from SKILLJAR_API_KEY environment variable.
 #' @param base_url Character. Base URL for the Skilljar API.
-#'   Default is "https://api.skilljar.com".
+#'   Defaults to the \code{quarjar.base_url} option, falling back to
+#'   \code{"https://api.skilljar.com"}.
 #'
 #' @return A list containing the web package details including:
 #'   \itemize{
@@ -59,7 +60,7 @@ create_web_package <- function(
   redirect_on_completion = TRUE,
   sync_on_completion = FALSE,
   api_key = Sys.getenv("SKILLJAR_API_KEY"),
-  base_url = "https://api.skilljar.com"
+  base_url = quarjar_base_url()
 ) {
   # Validate inputs
   if (missing(content_url) || is.null(content_url) || content_url == "") {
@@ -109,7 +110,8 @@ create_web_package <- function(
 #' @param api_key Character. Skilljar API key for authentication.
 #'   Default reads from SKILLJAR_API_KEY environment variable.
 #' @param base_url Character. Base URL for the Skilljar API.
-#'   Default is "https://api.skilljar.com".
+#'   Defaults to the \code{quarjar.base_url} option, falling back to
+#'   \code{"https://api.skilljar.com"}.
 #'
 #' @return A list containing the web package details including:
 #'   \itemize{
@@ -133,7 +135,7 @@ create_web_package <- function(
 get_web_package <- function(
   web_package_id,
   api_key = Sys.getenv("SKILLJAR_API_KEY"),
-  base_url = "https://api.skilljar.com"
+  base_url = quarjar_base_url()
 ) {
   if (missing(web_package_id) || is.null(web_package_id)) {
     rlang::abort("web_package_id is required")
@@ -157,7 +159,8 @@ get_web_package <- function(
 #' @param api_key Character. Skilljar API key for authentication.
 #'   Default reads from SKILLJAR_API_KEY environment variable.
 #' @param base_url Character. Base URL for the Skilljar API.
-#'   Default is "https://api.skilljar.com".
+#'   Defaults to the \code{quarjar.base_url} option, falling back to
+#'   \code{"https://api.skilljar.com"}.
 #'
 #' @return A list containing:
 #'   \itemize{
@@ -181,7 +184,7 @@ list_web_packages <- function(
   page = 1,
   page_size = 20,
   api_key = Sys.getenv("SKILLJAR_API_KEY"),
-  base_url = "https://api.skilljar.com"
+  base_url = quarjar_base_url()
 ) {
   req <- skilljar_request(api_key = api_key, base_url = base_url) |>
     httr2::req_url_path_append("v1/web-packages") |>
@@ -204,7 +207,8 @@ list_web_packages <- function(
 #' @param api_key Character. Skilljar API key for authentication.
 #'   Default reads from SKILLJAR_API_KEY environment variable.
 #' @param base_url Character. Base URL for the Skilljar API.
-#'   Default is "https://api.skilljar.com".
+#'   Defaults to the \code{quarjar.base_url} option, falling back to
+#'   \code{"https://api.skilljar.com"}.
 #'
 #' @return Invisible NULL on success.
 #'
@@ -217,7 +221,7 @@ list_web_packages <- function(
 delete_web_package <- function(
   web_package_id,
   api_key = Sys.getenv("SKILLJAR_API_KEY"),
-  base_url = "https://api.skilljar.com"
+  base_url = quarjar_base_url()
 ) {
   if (missing(web_package_id) || is.null(web_package_id)) {
     rlang::abort("web_package_id is required")
@@ -246,7 +250,8 @@ delete_web_package <- function(
 #' @param api_key Character. Skilljar API key for authentication.
 #'   Default reads from SKILLJAR_API_KEY environment variable.
 #' @param base_url Character. Base URL for the Skilljar API.
-#'   Default is "https://api.skilljar.com".
+#'   Defaults to the \code{quarjar.base_url} option, falling back to
+#'   \code{"https://api.skilljar.com"}.
 #'
 #' @return Invisibly returns the updated lesson object.
 #'
@@ -260,7 +265,7 @@ update_lesson <- function(
   lesson_id,
   content_web_package_id,
   api_key = Sys.getenv("SKILLJAR_API_KEY"),
-  base_url = "https://api.skilljar.com"
+  base_url = quarjar_base_url()
 ) {
   if (missing(lesson_id) || !nchar(lesson_id)) {
     rlang::abort("lesson_id must be provided")
@@ -299,7 +304,8 @@ update_lesson <- function(
 #' @param api_key Character. Skilljar API key for authentication.
 #'   Default reads from SKILLJAR_API_KEY environment variable.
 #' @param base_url Character. Base URL for the Skilljar API.
-#'   Default is "https://api.skilljar.com".
+#'   Defaults to the \code{quarjar.base_url} option, falling back to
+#'   \code{"https://api.skilljar.com"}.
 #'
 #' @return A list containing the lesson details.
 #'
@@ -322,7 +328,7 @@ create_lesson_with_web_package <- function(
   display_fullscreen = NULL,
   order = NULL,
   api_key = Sys.getenv("SKILLJAR_API_KEY"),
-  base_url = "https://api.skilljar.com"
+  base_url = quarjar_base_url()
 ) {
   # Validate inputs
   if (missing(course_id) || is.null(course_id)) {

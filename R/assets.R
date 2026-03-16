@@ -12,7 +12,8 @@
 #' @param api_key Character. Skilljar API key for authentication.
 #'   Default reads from SKILLJAR_API_KEY environment variable.
 #' @param base_url Character. Base URL for the Skilljar API.
-#'   Default is "https://api.skilljar.com".
+#'   Defaults to the \code{quarjar.base_url} option, falling back to
+#'   \code{"https://api.skilljar.com"}.
 #'
 #' @return Character. The asset ID of the uploaded file.
 #'
@@ -34,7 +35,7 @@
 upload_asset <- function(
   file_path,
   api_key = Sys.getenv("SKILLJAR_API_KEY"),
-  base_url = "https://api.skilljar.com"
+  base_url = quarjar_base_url()
 ) {
   if (!file.exists(file_path)) {
     rlang::abort(sprintf("File not found: %s", file_path))
@@ -77,7 +78,8 @@ upload_asset <- function(
 #' @param api_key Character. Skilljar API key for authentication.
 #'   Default reads from SKILLJAR_API_KEY environment variable.
 #' @param base_url Character. Base URL for the Skilljar API.
-#'   Default is "https://api.skilljar.com".
+#'   Defaults to the \code{quarjar.base_url} option, falling back to
+#'   \code{"https://api.skilljar.com"}.
 #'
 #' @return A list containing:
 #'   \itemize{
@@ -106,7 +108,7 @@ list_assets <- function(
   page = 1,
   page_size = 20,
   api_key = Sys.getenv("SKILLJAR_API_KEY"),
-  base_url = "https://api.skilljar.com"
+  base_url = quarjar_base_url()
 ) {
   req <- skilljar_request(api_key = api_key, base_url = base_url) |>
     httr2::req_url_path_append("v1/assets") |>
@@ -128,7 +130,8 @@ list_assets <- function(
 #' @param api_key Character. Skilljar API key for authentication.
 #'   Default reads from SKILLJAR_API_KEY environment variable.
 #' @param base_url Character. Base URL for the Skilljar API.
-#'   Default is "https://api.skilljar.com".
+#'   Defaults to the \code{quarjar.base_url} option, falling back to
+#'   \code{"https://api.skilljar.com"}.
 #'
 #' @return A list containing the asset details including:
 #'   \itemize{
@@ -152,7 +155,7 @@ list_assets <- function(
 get_asset <- function(
   asset_id,
   api_key = Sys.getenv("SKILLJAR_API_KEY"),
-  base_url = "https://api.skilljar.com"
+  base_url = quarjar_base_url()
 ) {
   if (missing(asset_id) || is.null(asset_id)) {
     rlang::abort("asset_id is required")
@@ -176,7 +179,8 @@ get_asset <- function(
 #' @param api_key Character. Skilljar API key for authentication.
 #'   Default reads from SKILLJAR_API_KEY environment variable.
 #' @param base_url Character. Base URL for the Skilljar API.
-#'   Default is "https://api.skilljar.com".
+#'   Defaults to the \code{quarjar.base_url} option, falling back to
+#'   \code{"https://api.skilljar.com"}.
 #'
 #' @return Invisible NULL on success.
 #'
@@ -189,7 +193,7 @@ get_asset <- function(
 delete_asset <- function(
   asset_id,
   api_key = Sys.getenv("SKILLJAR_API_KEY"),
-  base_url = "https://api.skilljar.com"
+  base_url = quarjar_base_url()
 ) {
   if (missing(asset_id) || is.null(asset_id)) {
     rlang::abort("asset_id is required")
