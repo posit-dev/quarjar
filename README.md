@@ -396,7 +396,7 @@ Creates a base httr2 request object configured for Skilljar API authentication.
 
 ### Automated Quarto to Skilljar Pipeline
 
-**📖 Full Setup Guide**: See [GITHUB_ACTION_SETUP.md](GITHUB_ACTION_SETUP.md) for complete setup instructions, troubleshooting, and advanced configuration.
+**📖 Full Setup Guide**: See [GITHUB_ACTION_SETUP.md](examples/GITHUB_ACTION_SETUP.md) for complete setup instructions, troubleshooting, and advanced configuration.
 
 The `publish-quarto-to-skilljar.yml` workflow provides an end-to-end solution that triggers automatically on every push to `main` that changes a `.qmd` file.
 
