@@ -18,6 +18,102 @@
 }
 
 
+# Internal helper: validate and type-coerce the `skilljar:` front matter block.
+# Returns NULL if the `skilljar` key is absent (file should be skipped).
+# Aborts or warns on bad values.
+parse_skilljar_fm <- function(fm) {
+  sj <- fm[["skilljar"]]
+
+  # --- Backward-compat shim: flat keys ---
+  # If there is no `skilljar:` block but the old flat keys are present,
+  # warn and promote them into the nested structure so the rest of the
+  # pipeline keeps working.
+  flat_present <- any(c("skilljar_course_id", "skilljar_package_title",
+                        "skilljar_lesson_order", "skilljar_lesson_id",
+                        "display_fullscreen") %in% names(fm))
+  if (is.null(sj) && flat_present) {
+    cli::cli_warn(c(
+      "Flat {.field skilljar_*} front matter keys are deprecated.",
+      "i" = "Please migrate to the nested {.field skilljar:} block:",
+      "i" = "skilljar:",
+      "i" = "  course_id: \"<your-course-id>\"",
+      "i" = "See the quarjar README for the full schema."
+    ))
+    sj <- list(
+      course_id          = fm[["skilljar_course_id"]],
+      package_title      = fm[["skilljar_package_title"]],
+      lesson_order       = fm[["skilljar_lesson_order"]],
+      lesson_id          = fm[["skilljar_lesson_id"]],
+      display_fullscreen = fm[["display_fullscreen"]]
+    )
+    sj <- Filter(Negate(is.null), sj)
+  }
+
+  if (is.null(sj)) return(NULL)
+
+  # Unknown-key detection (typo guard)
+  known_keys <- c("course_id", "package_title", "lesson_order",
+                  "lesson_id", "display_fullscreen")
+  unknown <- setdiff(names(sj), known_keys)
+  if (length(unknown) > 0) {
+    cli::cli_warn(
+      "Unknown key(s) inside {.field skilljar:}: {.field {unknown}}. Possible typo?"
+    )
+  }
+
+  # course_id — required, must be non-empty character
+  course_id <- sj[["course_id"]]
+  if (is.null(course_id) || !nzchar(as.character(course_id))) {
+    cli::cli_abort("{.field skilljar.course_id} is required but missing or empty.")
+  }
+  if (!is.character(course_id)) {
+    cli::cli_abort(c(
+      "{.field skilljar.course_id} must be a character string.",
+      "i" = "Got {.cls {class(course_id)}}. Did a leading zero get stripped?"
+    ))
+  }
+
+  # package_title — optional character
+  package_title <- as.character(rlang::`%||%`(sj[["package_title"]], ""))
+
+  # lesson_order — optional, must be integerish if present
+  lesson_order <- sj[["lesson_order"]]
+  if (!is.null(lesson_order)) {
+    coerced <- suppressWarnings(as.integer(lesson_order))
+    if (is.na(coerced)) {
+      cli::cli_abort(
+        "{.field skilljar.lesson_order} must be an integer, got {.val {lesson_order}}."
+      )
+    }
+    lesson_order <- coerced
+  }
+
+  # lesson_id — optional character
+  lesson_id <- as.character(rlang::`%||%`(sj[["lesson_id"]], ""))
+
+  # display_fullscreen — optional logical, default TRUE
+  display_fullscreen_raw <- rlang::`%||%`(sj[["display_fullscreen"]], NULL)
+  if (is.null(display_fullscreen_raw)) {
+    display_fullscreen <- TRUE
+  } else if (is.logical(display_fullscreen_raw)) {
+    display_fullscreen <- display_fullscreen_raw
+  } else {
+    cli::cli_warn(
+      "{.field skilljar.display_fullscreen} should be {.code true} or {.code false}; coercing."
+    )
+    display_fullscreen <- isTRUE(display_fullscreen_raw)
+  }
+
+  list(
+    course_id          = course_id,
+    package_title      = package_title,
+    lesson_order       = lesson_order,
+    lesson_id          = lesson_id,
+    display_fullscreen = display_fullscreen
+  )
+}
+
+
 #' Generate a timestamped ZIP package (CI helper)
 #'
 #' Renders a Quarto document, appends a timestamp to the ZIP filename for
