@@ -18,6 +18,94 @@
 }
 
 
+# Internal helper: validate and type-coerce the `skilljar:` front matter block.
+# Returns NULL if the `skilljar` key is absent (file should be skipped).
+# Aborts or warns on bad values.
+parse_skilljar_fm <- function(fm) {
+  sj <- fm[["skilljar"]]
+
+  # Flat keys are no longer supported — abort with a migration hint.
+  flat_present <- any(c("skilljar_course_id", "skilljar_package_title",
+                        "skilljar_lesson_order", "skilljar_lesson_id",
+                        "display_fullscreen") %in% names(fm))
+  if (is.null(sj) && flat_present) {
+    cli::cli_abort(c(
+      "This file uses the deprecated flat {.field skilljar_*} front matter format.",
+      "i" = "Migrate to the nested {.field skilljar:} block:",
+      "i" = "skilljar:",
+      "i" = "  course_id: \"<your-course-id>\"",
+      "i" = "See the quarjar README for instructions."
+    ))
+  }
+
+  if (is.null(sj)) return(NULL)
+
+  # Unknown-key detection (typo guard)
+  known_keys <- c("course_id", "package_title", "lesson_order",
+                  "lesson_id", "display_fullscreen")
+  unknown <- setdiff(names(sj), known_keys)
+  if (length(unknown) > 0) {
+    cli::cli_warn(
+      "Unknown key(s) inside {.field skilljar:}: {.field {unknown}}. Possible typo?"
+    )
+  }
+
+  # course_id — required, must be non-empty character
+  course_id <- sj[["course_id"]]
+  if (is.null(course_id)) {
+    cli::cli_abort("{.field skilljar.course_id} is required but missing.")
+  }
+  if (!is.character(course_id)) {
+    cli::cli_abort(c(
+      "{.field skilljar.course_id} must be a character string.",
+      "i" = "Got {.cls {class(course_id)}}. Did a leading zero get stripped?"
+    ))
+  }
+  if (!nzchar(course_id)) {
+    cli::cli_abort("{.field skilljar.course_id} is required but empty.")
+  }
+
+  # package_title — optional character
+  package_title <- as.character(rlang::`%||%`(sj[["package_title"]], ""))
+
+  # lesson_order — optional, must be integerish if present
+  lesson_order <- sj[["lesson_order"]]
+  if (!is.null(lesson_order)) {
+    coerced <- suppressWarnings(as.integer(lesson_order))
+    if (is.na(coerced)) {
+      cli::cli_abort(
+        "{.field skilljar.lesson_order} must be an integer, got {.val {lesson_order}}."
+      )
+    }
+    lesson_order <- coerced
+  }
+
+  # lesson_id — optional character
+  lesson_id <- as.character(rlang::`%||%`(sj[["lesson_id"]], ""))
+
+  # display_fullscreen — optional logical, default TRUE
+  display_fullscreen_raw <- rlang::`%||%`(sj[["display_fullscreen"]], NULL)
+  if (is.null(display_fullscreen_raw)) {
+    display_fullscreen <- TRUE
+  } else if (is.logical(display_fullscreen_raw)) {
+    display_fullscreen <- display_fullscreen_raw
+  } else {
+    cli::cli_warn(
+      "{.field skilljar.display_fullscreen} should be {.code true} or {.code false}; coercing."
+    )
+    display_fullscreen <- isTRUE(display_fullscreen_raw)
+  }
+
+  list(
+    course_id          = course_id,
+    package_title      = package_title,
+    lesson_order       = lesson_order,
+    lesson_id          = lesson_id,
+    display_fullscreen = display_fullscreen
+  )
+}
+
+
 #' Generate a timestamped ZIP package (CI helper)
 #'
 #' Renders a Quarto document, appends a timestamp to the ZIP filename for
@@ -367,14 +455,12 @@ ci_delete_old_web_package <- function(
 
 #' Inject Skilljar lesson ID into QMD front matter (CI helper)
 #'
-#' Reads a Quarto document, appends \code{skilljar_lesson_id} to the YAML
-#' front matter (if not already present), and writes the file back in place.
-#' This replaces the Python front-matter-patching script used in the
-#' "Write lesson ID back to main" workflow step, eliminating the Python
-#' dependency for that step.
+#' Reads a Quarto document and inserts \code{lesson_id} inside the nested
+#' \code{skilljar:} front matter block.  Aborts if no \code{skilljar:} block is
+#' present — the file must be migrated to the nested format first.
 #'
 #' The function exits silently (returning \code{FALSE}) if
-#' \code{skilljar_lesson_id} is already present, so it is safe to call
+#' \code{skilljar.lesson_id} is already present, so it is safe to call
 #' idempotently.
 #'
 #' @section Environment variables:
@@ -387,12 +473,10 @@ ci_delete_old_web_package <- function(
 #' @param lesson_id Character. Skilljar lesson ID to inject.
 #'
 #' @return Invisibly returns \code{TRUE} if the file was modified,
-#'   \code{FALSE} if \code{skilljar_lesson_id} was already present (file
-#'   left unchanged).
+#'   \code{FALSE} if the lesson ID was already present (file left unchanged).
 #'
 #' @examples
 #' \dontrun{
-#' # In a GitHub Actions step (shell: Rscript {0}):
 #' library(quarjar)
 #' ci_write_lesson_id()
 #' }
@@ -414,7 +498,7 @@ ci_write_lesson_id <- function(
     rlang::abort(paste("File not found:", qmd_file))
   }
 
-  lines <- readLines(qmd_file, warn = FALSE)
+  lines   <- readLines(qmd_file, warn = FALSE)
   sep_idx <- which(grepl("^---\\s*$", lines))
 
   if (length(sep_idx) < 2) {
@@ -423,21 +507,47 @@ ci_write_lesson_id <- function(
 
   fm_lines <- lines[seq(sep_idx[1] + 1L, sep_idx[2] - 1L)]
 
-  if (any(grepl("^skilljar_lesson_id:", fm_lines))) {
+  # Idempotency: bail out if lesson_id already recorded.
+  if (any(grepl("^  lesson_id:", fm_lines))) {
     cli::cli_alert_info(
-      "skilljar_lesson_id already present in {qmd_file} - no changes written"
+      "lesson_id already present in {qmd_file} - no changes written"
     )
     return(invisible(FALSE))
   }
 
-  # Append the new field just before the closing ---
-  new_lines <- c(
-    lines[seq_len(sep_idx[2] - 1L)],
-    paste0('skilljar_lesson_id: "', lesson_id, '"'),
-    lines[seq(sep_idx[2], length(lines))]
-  )
+  # Locate the `skilljar:` block and find the last indented line in it.
+  sj_line <- which(grepl("^skilljar:\\s*$", fm_lines))
+
+  if (length(sj_line) > 0) {
+    # Find the extent of the skilljar: block (contiguous indented lines after it).
+    sj_start  <- sj_line[1]
+    block_end <- sj_start
+    remaining <- seq_len(length(fm_lines) - sj_start) + sj_start
+    for (i in remaining) {
+      if (grepl("^  ", fm_lines[i])) {
+        block_end <- i
+      } else {
+        break
+      }
+    }
+
+    # Insert `  lesson_id: "..."` right after the last line of the block.
+    insert_after <- sep_idx[1] + block_end  # absolute line index
+    new_line     <- paste0('  lesson_id: "', lesson_id, '"')
+    new_lines    <- c(
+      lines[seq_len(insert_after)],
+      new_line,
+      lines[seq(insert_after + 1L, length(lines))]
+    )
+  } else {
+    cli::cli_abort(c(
+      "No {.field skilljar:} block found in {.file {qmd_file}}.",
+      "i" = "Migrate the front matter to the nested {.field skilljar:} format before publishing.",
+      "i" = "See the quarjar README for instructions."
+    ))
+  }
 
   writeLines(new_lines, qmd_file)
-  cli::cli_alert_success("Wrote skilljar_lesson_id to {qmd_file}")
+  cli::cli_alert_success("Wrote lesson_id to {qmd_file}")
   invisible(TRUE)
 }

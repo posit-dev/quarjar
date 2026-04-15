@@ -1,3 +1,4 @@
+# quarjar-workflow-version: 0.2.0
 name: Publish Quarto to Skilljar via GitHub Pages
 
 on:
@@ -49,21 +50,30 @@ jobs:
                       print(f"Skipping {f}: no YAML front matter found")
                       continue
                   fm = yaml.safe_load(parts[1]) or {}
-                  course_id = str(fm.get('skilljar_course_id', '')).strip()
+
+                  # Only the nested skilljar: block is supported.
+                  # Files with flat skilljar_* keys will produce an empty
+                  # course_id and be skipped here; the R layer will abort
+                  # with a migration message if they reach it another way.
+                  sj = fm.get('skilljar', {}) or {}
+                  course_id = str(sj.get('course_id', '')).strip()
+
                   if course_id:
                       items.append({
                           'qmd_file': f,
                           'course_id': course_id,
                           'lesson_title': str(fm.get('title', f)),
-                          'package_title': str(fm.get('skilljar_package_title', '')),
+                          'package_title': str(sj.get('package_title', '')),
                           'base_url': 'https://api.skilljar.com',
-                          'display_fullscreen': bool(fm.get('display_fullscreen', True)),
-                          'lesson_order': fm.get('skilljar_lesson_order', None),
-                          'lesson_id': str(fm.get('skilljar_lesson_id', '')),
+                          'display_fullscreen': bool(
+                              sj.get('display_fullscreen', True)),
+                          'lesson_order': (sj['lesson_order'] if 'lesson_order' in sj
+                                           else None),
+                          'lesson_id': str(sj.get('lesson_id', '')),
                       })
                       print(f"Added {f}: course_id={course_id!r}")
                   else:
-                      print(f"Skipping {f}: no skilljar_course_id in front matter")
+                      print(f"Skipping {f}: no skilljar.course_id in front matter")
               except Exception as e:
                   print(f"Warning: could not parse {f}: {e}")
 
@@ -135,6 +145,27 @@ jobs:
         run: |
           pak::pak("posit-dev/quarjar")
         shell: Rscript {0}
+
+      - name: Check workflow version
+        run: |
+          # Extract the version recorded in this workflow file.
+          # NOTE: assumes the workflow file is installed under its default name.
+          # If the file was renamed, the grep returns empty and the "not found" warning fires.
+          WORKFLOW_VERSION=$(grep -m1 'quarjar-workflow-version:' \
+            "${GITHUB_WORKSPACE}/.github/workflows/publish-quarto-to-skilljar.yml" \
+            | sed 's/.*quarjar-workflow-version:[[:space:]]*//' \
+            | tr -d '[:space:]')
+
+          # Get the installed quarjar package version.
+          PKG_VERSION=$(Rscript -e "cat(as.character(packageVersion('quarjar')))")
+
+          if [ -z "${WORKFLOW_VERSION}" ]; then
+            echo "::warning::quarjar: workflow version comment not found. Add '# quarjar-workflow-version: X.Y.Z' to the top of this file."
+          elif [ "${WORKFLOW_VERSION}" != "${PKG_VERSION}" ]; then
+            echo "::warning::quarjar: workflow template is version ${WORKFLOW_VERSION} but the installed quarjar package is ${PKG_VERSION}. Run quarjar::use_skilljar_workflow(overwrite = TRUE) to update the workflow."
+          else
+            echo "Workflow version ${WORKFLOW_VERSION} matches installed quarjar ${PKG_VERSION}."
+          fi
 
       - name: Generate ZIP package from Quarto
         id: generate-zip
@@ -302,6 +333,40 @@ jobs:
           git add "${QMD_FILE}"
           git commit -m "chore: record Skilljar lesson ID in ${QMD_FILE} [skip ci]"
           git push origin main
+
+      - name: Validate front matter after lesson ID writeback
+        if: steps.create-or-update-lesson.outputs.is_new_lesson == 'true'
+        env:
+          QMD_FILE: ${{ matrix.qmd_file }}
+        run: |
+          # Guard against silent ci_write_lesson_id() failure: if lesson_id is
+          # absent after writeback, the next run would create a duplicate lesson.
+          python3 - << 'PYEOF'
+          import yaml, os, re, sys
+
+          qmd_file = os.environ['QMD_FILE']
+          with open(qmd_file) as fh:
+              content = fh.read()
+
+          sep = re.compile(r'^---\s*$', re.MULTILINE)
+          parts = sep.split(content, maxsplit=2)
+          if len(parts) < 3 or parts[0].strip() != '':
+              print(f"ERROR: No YAML front matter found in {qmd_file}", file=sys.stderr)
+              sys.exit(1)
+
+          try:
+              fm = yaml.safe_load(parts[1]) or {}
+          except yaml.YAMLError as e:
+              print(f"ERROR: Front matter is invalid YAML after writeback: {e}", file=sys.stderr)
+              sys.exit(1)
+
+          sj = fm.get('skilljar', {}) or {}
+          if not sj.get('lesson_id', '').strip():
+              print(f"ERROR: skilljar.lesson_id not found in {qmd_file} after writeback", file=sys.stderr)
+              sys.exit(1)
+
+          print(f"Front matter validation passed: skilljar.lesson_id = {sj['lesson_id']!r}")
+          PYEOF
 
       - name: Cleanup old ZIP files from gh-pages
         if: always()

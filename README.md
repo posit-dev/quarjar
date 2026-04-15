@@ -427,19 +427,45 @@ Steps 1–5 run identically, then:
 
 #### Front Matter Configuration
 
-All workflow configuration lives in your `.qmd` front matter — no workflow inputs needed:
+All workflow configuration lives in your `.qmd` front matter — no workflow inputs needed.
+The workflow scans every changed `.qmd` file on push and reads the following keys:
+
+| Key | Required? | Description |
+|-----|----------|-------------|
+| `title` | Yes | Lesson title in Skilljar. Standard Quarto `title` field (not nested). |
+| `skilljar.course_id` | **Required** | Skilljar course ID to publish to. Files without this key are silently skipped. |
+| `skilljar.package_title` | Optional | Title for the Skilljar web package. Defaults to `title` when omitted. |
+| `skilljar.lesson_order` | Optional | Zero-based integer position in the course syllabus. Applied on first publish only; ignored on updates. Auto-detected when omitted. |
+| `skilljar.display_fullscreen` | Optional | Whether the lesson iframe is displayed full-screen. Default `true`. |
+| `skilljar.lesson_id` | — | **Do not set manually.** Committed back to `main` (tagged `[skip ci]`) after first publish. |
+
+> **Deprecated:** The flat `skilljar_course_id`, `skilljar_package_title`,
+> `skilljar_lesson_order`, `skilljar_lesson_id`, and top-level
+> `display_fullscreen` keys still work but emit a deprecation warning.
+> Migrate to the nested `skilljar:` block shown above.
+
+Minimal example:
 
 ```yaml
 ---
-title: "My Lesson Title"           # used as the lesson title in Skilljar
-skilljar_course_id: "abc123"       # required — files without this are skipped
-skilljar_package_title: "..."      # optional; defaults to title
-skilljar_lesson_order: 3           # optional; explicit position in course (create only)
-skilljar_lesson_id: "xyz789"       # committed directly to main after first publish
+title: "My Lesson Title"
+skilljar:
+  course_id: "abc123"
 ---
 ```
 
-`skilljar_lesson_id` is never set manually. The workflow commits it directly to `main` (with `[skip ci]`) after the first successful publish, activating the update-on-push path for future runs.
+Fully configured example:
+
+```yaml
+---
+title: "Module 1: Getting Started"
+skilljar:
+  course_id: "abc123"
+  package_title: "Module 1 Package"
+  lesson_order: 0
+  display_fullscreen: true
+---
+```
 
 To re-trigger a failed run, make a trivial change to the `.qmd` file (the
 `paths` filter requires at least one `.qmd` to be modified — an empty commit
@@ -507,13 +533,14 @@ lesson <- create_lesson_with_web_package(
 )
 ```
 
-For the GitHub Actions workflow, use `skilljar_lesson_order` in the `.qmd` front matter:
+For the GitHub Actions workflow, use `skilljar.lesson_order` in the `.qmd` front matter:
 
 ```yaml
 ---
 title: "Module 1"
-skilljar_course_id: "abc123"
-skilljar_lesson_order: 2   # sets position on first publish; ignored on updates
+skilljar:
+  course_id: "abc123"
+  lesson_order: 2   # sets position on first publish; ignored on updates
 ---
 ```
 

@@ -38,22 +38,62 @@ Before using this workflow, you must:
 \enumerate{
 \item Enable GitHub Pages in your repository (Settings → Pages → Deploy from \code{gh-pages} branch)
 \item Add your Skilljar API key as a repository secret named \code{SKILLJAR_API_KEY}
+\item Add a fine-grained PAT with Contents and Pages read/write as a repository secret named \code{REPO_PAT}
 \item Set repository permissions to "Read and write" (Settings → Actions → General)
 }
 
-\strong{Usage:}
+\strong{Quarto Front Matter Keys:}
 
-After running this function, trigger the workflow from the Actions tab in your
-GitHub repository with the following inputs:
-\itemize{
-\item \code{qmd-file}: Path to your Quarto (.qmd) file
-\item \code{course-id}: Your Skilljar course ID
-\item \code{lesson-title}: Title for the lesson
-\item \code{package-title}: (optional) Title for the web package
+All workflow configuration is driven by YAML front matter in your \code{.qmd}
+files. The workflow scans every changed \code{.qmd} file on push and reads the
+following keys inside a single nested \verb{skilljar:} block:
+
+\describe{
+\item{\code{skilljar.course_id}}{\strong{Required.} The Skilljar course ID to
+publish the lesson to. Files without this key are silently skipped.}
+\item{\code{title}}{The lesson title in Skilljar. Uses the standard Quarto
+\code{title} field (not nested under \verb{skilljar:}).}
+\item{\code{skilljar.package_title}}{\emph{(Optional)} Title for the Skilljar web
+package. Defaults to \code{title} when omitted.}
+\item{\code{skilljar.lesson_order}}{\emph{(Optional)} Zero-based integer that sets
+the lesson's position in the course syllabus on \strong{first publish only}.
+Ignored on updates. Auto-detected when omitted.}
+\item{\code{skilljar.display_fullscreen}}{\emph{(Optional)} Logical. Whether the
+lesson iframe is displayed full-screen in Skilljar. Defaults to \code{true}.}
+\item{\code{skilljar.lesson_id}}{The Skilljar lesson ID. \strong{Do not set this
+manually.} After the first successful publish the workflow commits this
+value back to \code{main} (tagged \verb{[skip ci]}), switching future runs to the
+update-existing-lesson path.}
 }
 
+A minimal front matter example:
+
+\if{html}{\out{<div class="sourceCode yaml">}}\preformatted{---
+title: "My Lesson Title"
+skilljar:
+  course_id: "abc123"
+---
+}\if{html}{\out{</div>}}
+
+A fully configured example:
+
+\if{html}{\out{<div class="sourceCode yaml">}}\preformatted{---
+title: "Module 1: Getting Started"
+skilljar:
+  course_id: "abc123"
+  package_title: "Module 1 Package"
+  lesson_order: 0
+  display_fullscreen: true
+---
+}\if{html}{\out{</div>}}
+
+\strong{Deprecated flat keys:} \code{skilljar_course_id}, \code{skilljar_package_title},
+\code{skilljar_lesson_order}, \code{skilljar_lesson_id}, and \code{display_fullscreen} as
+top-level keys still work but will emit a deprecation warning at publish
+time. Migrate to the nested \verb{skilljar:} block at your earliest convenience.
+
 For complete setup instructions and troubleshooting, see the
-\href{https://github.com/posit-dev/quarjar/blob/main/GITHUB_ACTION_SETUP.md}{setup guide}.
+\href{https://github.com/posit-dev/quarjar/blob/main/examples/GITHUB_ACTION_SETUP.md}{setup guide}.
 }
 \examples{
 \dontrun{
