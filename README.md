@@ -430,20 +430,27 @@ Steps 1–5 run identically, then:
 All workflow configuration lives in your `.qmd` front matter — no workflow inputs needed.
 The workflow scans every changed `.qmd` file on push and reads the following keys:
 
-| Key | Required | Description |
+| Key | Required? | Description |
 |-----|----------|-------------|
-| `title` | Yes | Lesson title in Skilljar. Uses the standard Quarto `title` field. |
-| `skilljar_course_id` | **Required** | Skilljar course ID to publish to. Files without this key are silently skipped. |
-| `skilljar_package_title` | Optional | Title for the Skilljar web package. Defaults to `title` when omitted. |
-| `skilljar_lesson_order` | Optional | Zero-based integer position in the course syllabus. Applied on first publish only; ignored on updates. Auto-detected when omitted. |
-| `skilljar_lesson_id` | — | **Do not set manually.** Committed back to `main` (tagged `[skip ci]`) by the workflow after the first successful publish, switching future runs to the update-existing-lesson path. |
+| `title` | Yes | Lesson title in Skilljar. Standard Quarto `title` field (not nested). |
+| `skilljar.course_id` | **Required** | Skilljar course ID to publish to. Files without this key are silently skipped. |
+| `skilljar.package_title` | Optional | Title for the Skilljar web package. Defaults to `title` when omitted. |
+| `skilljar.lesson_order` | Optional | Zero-based integer position in the course syllabus. Applied on first publish only; ignored on updates. Auto-detected when omitted. |
+| `skilljar.display_fullscreen` | Optional | Whether the lesson iframe is displayed full-screen. Default `true`. |
+| `skilljar.lesson_id` | — | **Do not set manually.** Committed back to `main` (tagged `[skip ci]`) after first publish. |
+
+> **Deprecated:** The flat `skilljar_course_id`, `skilljar_package_title`,
+> `skilljar_lesson_order`, `skilljar_lesson_id`, and top-level
+> `display_fullscreen` keys still work but emit a deprecation warning.
+> Migrate to the nested `skilljar:` block shown above.
 
 Minimal example:
 
 ```yaml
 ---
 title: "My Lesson Title"
-skilljar_course_id: "abc123"
+skilljar:
+  course_id: "abc123"
 ---
 ```
 
@@ -452,9 +459,11 @@ Fully configured example:
 ```yaml
 ---
 title: "Module 1: Getting Started"
-skilljar_course_id: "abc123"
-skilljar_package_title: "Module 1 Package"
-skilljar_lesson_order: 0
+skilljar:
+  course_id: "abc123"
+  package_title: "Module 1 Package"
+  lesson_order: 0
+  display_fullscreen: true
 ---
 ```
 
@@ -524,13 +533,14 @@ lesson <- create_lesson_with_web_package(
 )
 ```
 
-For the GitHub Actions workflow, use `skilljar_lesson_order` in the `.qmd` front matter:
+For the GitHub Actions workflow, use `skilljar.lesson_order` in the `.qmd` front matter:
 
 ```yaml
 ---
 title: "Module 1"
-skilljar_course_id: "abc123"
-skilljar_lesson_order: 2   # sets position on first publish; ignored on updates
+skilljar:
+  course_id: "abc123"
+  lesson_order: 2   # sets position on first publish; ignored on updates
 ---
 ```
 
