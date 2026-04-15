@@ -49,21 +49,36 @@ jobs:
                       print(f"Skipping {f}: no YAML front matter found")
                       continue
                   fm = yaml.safe_load(parts[1]) or {}
-                  course_id = str(fm.get('skilljar_course_id', '')).strip()
+
+                  # Support both nested skilljar: block (new) and flat
+                  # skilljar_* keys (deprecated).  Validation/warnings for
+                  # the deprecated form happen in R (parse_skilljar_fm()).
+                  sj = fm.get('skilljar', {}) or {}
+                  course_id = str(sj.get('course_id', '') or
+                                  fm.get('skilljar_course_id', '')).strip()
+
                   if course_id:
                       items.append({
                           'qmd_file': f,
                           'course_id': course_id,
                           'lesson_title': str(fm.get('title', f)),
-                          'package_title': str(fm.get('skilljar_package_title', '')),
+                          'package_title': str(
+                              sj.get('package_title', '') or
+                              fm.get('skilljar_package_title', '')),
                           'base_url': 'https://api.skilljar.com',
-                          'display_fullscreen': bool(fm.get('display_fullscreen', True)),
-                          'lesson_order': fm.get('skilljar_lesson_order', None),
-                          'lesson_id': str(fm.get('skilljar_lesson_id', '')),
+                          'display_fullscreen': bool(
+                              sj.get('display_fullscreen',
+                                     fm.get('display_fullscreen', True))),
+                          'lesson_order': (
+                              sj.get('lesson_order') or
+                              fm.get('skilljar_lesson_order')),
+                          'lesson_id': str(
+                              sj.get('lesson_id', '') or
+                              fm.get('skilljar_lesson_id', '')),
                       })
                       print(f"Added {f}: course_id={course_id!r}")
                   else:
-                      print(f"Skipping {f}: no skilljar_course_id in front matter")
+                      print(f"Skipping {f}: no skilljar.course_id in front matter")
               except Exception as e:
                   print(f"Warning: could not parse {f}: {e}")
 
