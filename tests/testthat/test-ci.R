@@ -58,18 +58,17 @@ test_that("parse_skilljar_fm warns on non-logical display_fullscreen", {
   expect_warning(parse_skilljar_fm(fm), "display_fullscreen")
 })
 
-test_that("parse_skilljar_fm warns and promotes flat keys (compat shim)", {
+test_that("parse_skilljar_fm aborts on flat keys with migration message", {
   fm <- list(
     title = "My Lesson",
     skilljar_course_id = "flat123",
     display_fullscreen = FALSE
   )
-  w <- testthat::capture_warnings(
-    result <- parse_skilljar_fm(fm)
+  expect_error(
+    parse_skilljar_fm(fm),
+    regexp = "flat.*skilljar_\\*|deprecated|migrate",
+    ignore.case = TRUE
   )
-  expect_match(w, "deprecated", all = FALSE)
-  expect_equal(result$course_id, "flat123")
-  expect_false(result$display_fullscreen)
 })
 
 test_that("parse_skilljar_fm returns NULL when neither nested nor flat keys present", {
@@ -123,43 +122,49 @@ test_that("ci_write_lesson_id is idempotent when lesson_id already present (nest
   expect_true(any(grepl("les_existing", lines)))
 })
 
-test_that("ci_write_lesson_id is idempotent when flat skilljar_lesson_id already present", {
+
+test_that("ci_write_lesson_id aborts when no skilljar: block present", {
   tmp <- tempfile(fileext = ".qmd")
   writeLines(c(
     "---",
     "title: Old style",
     "skilljar_course_id: \"abc123\"",
-    "skilljar_lesson_id: \"les_old\"",
     "---",
     "",
     "Body."
   ), tmp)
   withr::defer(unlink(tmp))
 
-  result <- ci_write_lesson_id(qmd_file = tmp, lesson_id = "les_new")
-  expect_false(result)  # already present, no changes
+  expect_error(
+    ci_write_lesson_id(qmd_file = tmp, lesson_id = "les_fail"),
+    regexp = "skilljar:.*block|nested|migrate",
+    ignore.case = TRUE
+  )
 })
 
-test_that("ci_write_lesson_id writes flat key with warning when no skilljar: block", {
+test_that("ci_write_lesson_id handles skilljar: block with no children", {
+  # Edge case: skilljar: is the last line of front matter (no indented children).
+  # seq_len(0) must return integer(0) so the for loop never executes,
+  # and lesson_id is appended right after the skilljar: line.
   tmp <- tempfile(fileext = ".qmd")
   writeLines(c(
     "---",
-    "title: Old style",
-    "skilljar_course_id: \"abc123\"",
+    "title: Test",
+    "skilljar:",
     "---",
     "",
     "Body."
   ), tmp)
   withr::defer(unlink(tmp))
 
-  w <- testthat::capture_warnings(
-    result <- ci_write_lesson_id(qmd_file = tmp, lesson_id = "les_fallback")
-  )
+  result <- ci_write_lesson_id(qmd_file = tmp, lesson_id = "les_edge")
   expect_true(result)
-  expect_match(w, "skilljar_lesson_id", all = FALSE)
 
   lines <- readLines(tmp, warn = FALSE)
-  expect_true(any(grepl("^skilljar_lesson_id: \"les_fallback\"", lines)))
-  # must not have written an indented key
-  expect_false(any(grepl("^  lesson_id:", lines)))
+  expect_true(any(grepl("^  lesson_id: \"les_edge\"", lines)))
+  # lesson_id must appear between the skilljar: line and the closing ---
+  sj_idx     <- which(grepl("^skilljar:\\s*$", lines))
+  end_idx    <- which(grepl("^---\\s*$", lines))[[2]]
+  lesson_idx <- which(grepl("^  lesson_id:", lines))
+  expect_true(lesson_idx > sj_idx && lesson_idx < end_idx)
 })
