@@ -69,9 +69,8 @@ jobs:
                           'display_fullscreen': bool(
                               sj.get('display_fullscreen',
                                      fm.get('display_fullscreen', True))),
-                          'lesson_order': (
-                              sj.get('lesson_order') or
-                              fm.get('skilljar_lesson_order')),
+                          'lesson_order': (sj['lesson_order'] if 'lesson_order' in sj
+                                           else fm.get('skilljar_lesson_order')),
                           'lesson_id': str(
                               sj.get('lesson_id', '') or
                               fm.get('skilljar_lesson_id', '')),
