@@ -37,21 +37,21 @@
 #'
 #' All workflow configuration is driven by YAML front matter in your `.qmd`
 #' files. The workflow scans every changed `.qmd` file on push and reads the
-#' following keys:
+#' following keys inside a single nested `skilljar:` block:
 #'
 #' \describe{
-#'   \item{`skilljar_course_id`}{**Required.** The Skilljar course ID to publish
-#'     the lesson to. Files without this key are silently skipped by the
-#'     workflow.}
+#'   \item{`skilljar.course_id`}{**Required.** The Skilljar course ID to
+#'     publish the lesson to. Files without this key are silently skipped.}
 #'   \item{`title`}{The lesson title in Skilljar. Uses the standard Quarto
-#'     `title` field (not `skilljar_`-prefixed).}
-#'   \item{`skilljar_package_title`}{*(Optional)* Title for the Skilljar web
-#'     package. Defaults to the value of `title` when omitted.}
-#'   \item{`skilljar_lesson_order`}{*(Optional)* Zero-based integer that sets
+#'     `title` field (not nested under `skilljar:`).}
+#'   \item{`skilljar.package_title`}{*(Optional)* Title for the Skilljar web
+#'     package. Defaults to `title` when omitted.}
+#'   \item{`skilljar.lesson_order`}{*(Optional)* Zero-based integer that sets
 #'     the lesson's position in the course syllabus on **first publish only**.
-#'     Ignored on subsequent updates. When omitted, the next available order is
-#'     detected automatically.}
-#'   \item{`skilljar_lesson_id`}{The Skilljar lesson ID. **Do not set this
+#'     Ignored on updates. Auto-detected when omitted.}
+#'   \item{`skilljar.display_fullscreen`}{*(Optional)* Logical. Whether the
+#'     lesson iframe is displayed full-screen in Skilljar. Defaults to `true`.}
+#'   \item{`skilljar.lesson_id`}{The Skilljar lesson ID. **Do not set this
 #'     manually.** After the first successful publish the workflow commits this
 #'     value back to `main` (tagged `[skip ci]`), switching future runs to the
 #'     update-existing-lesson path.}
@@ -62,7 +62,8 @@
 #' ```yaml
 #' ---
 #' title: "My Lesson Title"
-#' skilljar_course_id: "abc123"
+#' skilljar:
+#'   course_id: "abc123"
 #' ---
 #' ```
 #'
@@ -71,11 +72,18 @@
 #' ```yaml
 #' ---
 #' title: "Module 1: Getting Started"
-#' skilljar_course_id: "abc123"
-#' skilljar_package_title: "Module 1 Package"
-#' skilljar_lesson_order: 0
+#' skilljar:
+#'   course_id: "abc123"
+#'   package_title: "Module 1 Package"
+#'   lesson_order: 0
+#'   display_fullscreen: true
 #' ---
 #' ```
+#'
+#' **Deprecated flat keys:** `skilljar_course_id`, `skilljar_package_title`,
+#' `skilljar_lesson_order`, `skilljar_lesson_id`, and `display_fullscreen` as
+#' top-level keys still work but will emit a deprecation warning at publish
+#' time. Migrate to the nested `skilljar:` block at your earliest convenience.
 #'
 #' For complete setup instructions and troubleshooting, see the
 #' [setup guide](https://github.com/posit-dev/quarjar/blob/main/examples/GITHUB_ACTION_SETUP.md).

@@ -46,21 +46,21 @@ Before using this workflow, you must:
 
 All workflow configuration is driven by YAML front matter in your \code{.qmd}
 files. The workflow scans every changed \code{.qmd} file on push and reads the
-following keys:
+following keys inside a single nested \verb{skilljar:} block:
 
 \describe{
-\item{\code{skilljar_course_id}}{\strong{Required.} The Skilljar course ID to publish
-the lesson to. Files without this key are silently skipped by the
-workflow.}
+\item{\code{skilljar.course_id}}{\strong{Required.} The Skilljar course ID to
+publish the lesson to. Files without this key are silently skipped.}
 \item{\code{title}}{The lesson title in Skilljar. Uses the standard Quarto
-\code{title} field (not \code{skilljar_}-prefixed).}
-\item{\code{skilljar_package_title}}{\emph{(Optional)} Title for the Skilljar web
-package. Defaults to the value of \code{title} when omitted.}
-\item{\code{skilljar_lesson_order}}{\emph{(Optional)} Zero-based integer that sets
+\code{title} field (not nested under \verb{skilljar:}).}
+\item{\code{skilljar.package_title}}{\emph{(Optional)} Title for the Skilljar web
+package. Defaults to \code{title} when omitted.}
+\item{\code{skilljar.lesson_order}}{\emph{(Optional)} Zero-based integer that sets
 the lesson's position in the course syllabus on \strong{first publish only}.
-Ignored on subsequent updates. When omitted, the next available order is
-detected automatically.}
-\item{\code{skilljar_lesson_id}}{The Skilljar lesson ID. \strong{Do not set this
+Ignored on updates. Auto-detected when omitted.}
+\item{\code{skilljar.display_fullscreen}}{\emph{(Optional)} Logical. Whether the
+lesson iframe is displayed full-screen in Skilljar. Defaults to \code{true}.}
+\item{\code{skilljar.lesson_id}}{The Skilljar lesson ID. \strong{Do not set this
 manually.} After the first successful publish the workflow commits this
 value back to \code{main} (tagged \verb{[skip ci]}), switching future runs to the
 update-existing-lesson path.}
@@ -70,7 +70,8 @@ A minimal front matter example:
 
 \if{html}{\out{<div class="sourceCode yaml">}}\preformatted{---
 title: "My Lesson Title"
-skilljar_course_id: "abc123"
+skilljar:
+  course_id: "abc123"
 ---
 }\if{html}{\out{</div>}}
 
@@ -78,11 +79,18 @@ A fully configured example:
 
 \if{html}{\out{<div class="sourceCode yaml">}}\preformatted{---
 title: "Module 1: Getting Started"
-skilljar_course_id: "abc123"
-skilljar_package_title: "Module 1 Package"
-skilljar_lesson_order: 0
+skilljar:
+  course_id: "abc123"
+  package_title: "Module 1 Package"
+  lesson_order: 0
+  display_fullscreen: true
 ---
 }\if{html}{\out{</div>}}
+
+\strong{Deprecated flat keys:} \code{skilljar_course_id}, \code{skilljar_package_title},
+\code{skilljar_lesson_order}, \code{skilljar_lesson_id}, and \code{display_fullscreen} as
+top-level keys still work but will emit a deprecation warning at publish
+time. Migrate to the nested \verb{skilljar:} block at your earliest convenience.
 
 For complete setup instructions and troubleshooting, see the
 \href{https://github.com/posit-dev/quarjar/blob/main/examples/GITHUB_ACTION_SETUP.md}{setup guide}.
