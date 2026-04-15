@@ -339,6 +339,8 @@ jobs:
         env:
           QMD_FILE: ${{ matrix.qmd_file }}
         run: |
+          # Guard against silent ci_write_lesson_id() failure: if lesson_id is
+          # absent after writeback, the next run would create a duplicate lesson.
           python3 - << 'PYEOF'
           import yaml, os, re, sys
 
