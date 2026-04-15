@@ -1,6 +1,6 @@
 Package: quarjar
 Title: Publish Quarto Content to Skilljar
-Version: 0.1.0
+Version: 0.2.0
 Authors@R:
     person("François Michonneau", email = "francois.michonneau@posit.co", role = c("aut", "cre"))
 Description: Tools for publishing Quarto-rendered HTML content to Skilljar lessons via the
