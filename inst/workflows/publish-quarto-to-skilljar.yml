@@ -334,6 +334,38 @@ jobs:
           git commit -m "chore: record Skilljar lesson ID in ${QMD_FILE} [skip ci]"
           git push origin main
 
+      - name: Validate front matter after lesson ID writeback
+        if: steps.create-or-update-lesson.outputs.is_new_lesson == 'true'
+        env:
+          QMD_FILE: ${{ matrix.qmd_file }}
+        run: |
+          python3 - << 'PYEOF'
+          import yaml, os, re, sys
+
+          qmd_file = os.environ['QMD_FILE']
+          with open(qmd_file) as fh:
+              content = fh.read()
+
+          sep = re.compile(r'^---\s*$', re.MULTILINE)
+          parts = sep.split(content, maxsplit=2)
+          if len(parts) < 3 or parts[0].strip() != '':
+              print(f"ERROR: No YAML front matter found in {qmd_file}", file=sys.stderr)
+              sys.exit(1)
+
+          try:
+              fm = yaml.safe_load(parts[1]) or {}
+          except yaml.YAMLError as e:
+              print(f"ERROR: Front matter is invalid YAML after writeback: {e}", file=sys.stderr)
+              sys.exit(1)
+
+          sj = fm.get('skilljar', {}) or {}
+          if not sj.get('lesson_id', '').strip():
+              print(f"ERROR: skilljar.lesson_id not found in {qmd_file} after writeback", file=sys.stderr)
+              sys.exit(1)
+
+          print(f"Front matter validation passed: skilljar.lesson_id = {sj['lesson_id']!r}")
+          PYEOF
+
       - name: Cleanup old ZIP files from gh-pages
         if: always()
         run: |
