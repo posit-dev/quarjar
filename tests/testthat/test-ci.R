@@ -139,3 +139,27 @@ test_that("ci_write_lesson_id is idempotent when flat skilljar_lesson_id already
   result <- ci_write_lesson_id(qmd_file = tmp, lesson_id = "les_new")
   expect_false(result)  # already present, no changes
 })
+
+test_that("ci_write_lesson_id writes flat key with warning when no skilljar: block", {
+  tmp <- tempfile(fileext = ".qmd")
+  writeLines(c(
+    "---",
+    "title: Old style",
+    "skilljar_course_id: \"abc123\"",
+    "---",
+    "",
+    "Body."
+  ), tmp)
+  withr::defer(unlink(tmp))
+
+  w <- testthat::capture_warnings(
+    result <- ci_write_lesson_id(qmd_file = tmp, lesson_id = "les_fallback")
+  )
+  expect_true(result)
+  expect_match(w, "skilljar_lesson_id", all = FALSE)
+
+  lines <- readLines(tmp, warn = FALSE)
+  expect_true(any(grepl("^skilljar_lesson_id: \"les_fallback\"", lines)))
+  # must not have written an indented key
+  expect_false(any(grepl("^  lesson_id:", lines)))
+})

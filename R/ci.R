@@ -535,7 +535,8 @@ ci_write_lesson_id <- function(
     # Find the extent of the skilljar: block (contiguous indented lines after it).
     sj_start  <- sj_line[1]
     block_end <- sj_start
-    for (i in seq(sj_start + 1L, length(fm_lines))) {
+    remaining <- seq_len(length(fm_lines) - sj_start) + sj_start
+    for (i in remaining) {
       if (grepl("^  ", fm_lines[i])) {
         block_end <- i
       } else {
