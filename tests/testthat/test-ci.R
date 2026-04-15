@@ -64,11 +64,10 @@ test_that("parse_skilljar_fm warns and promotes flat keys (compat shim)", {
     skilljar_course_id = "flat123",
     display_fullscreen = FALSE
   )
-  result <- withCallingHandlers(
-    parse_skilljar_fm(fm),
-    warning = function(w) invokeRestart("muffleWarning")
+  w <- testthat::capture_warnings(
+    result <- parse_skilljar_fm(fm)
   )
-  expect_warning(parse_skilljar_fm(fm), "deprecated")
+  expect_match(w, "deprecated", all = FALSE)
   expect_equal(result$course_id, "flat123")
   expect_false(result$display_fullscreen)
 })
