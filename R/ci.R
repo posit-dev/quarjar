@@ -63,14 +63,17 @@ parse_skilljar_fm <- function(fm) {
 
   # course_id — required, must be non-empty character
   course_id <- sj[["course_id"]]
-  if (is.null(course_id) || !nzchar(as.character(course_id))) {
-    cli::cli_abort("{.field skilljar.course_id} is required but missing or empty.")
+  if (is.null(course_id)) {
+    cli::cli_abort("{.field skilljar.course_id} is required but missing.")
   }
   if (!is.character(course_id)) {
     cli::cli_abort(c(
       "{.field skilljar.course_id} must be a character string.",
       "i" = "Got {.cls {class(course_id)}}. Did a leading zero get stripped?"
     ))
+  }
+  if (!nzchar(course_id)) {
+    cli::cli_abort("{.field skilljar.course_id} is required but empty.")
   }
 
   # package_title — optional character
