@@ -456,13 +456,12 @@ ci_delete_old_web_package <- function(
 #' Inject Skilljar lesson ID into QMD front matter (CI helper)
 #'
 #' Reads a Quarto document and inserts \code{lesson_id} inside the nested
-#' \code{skilljar:} front matter block.  Falls back to appending a flat
-#' \code{skilljar_lesson_id:} top-level key when no \code{skilljar:} block is
-#' present (backward compatibility for repos that haven't migrated yet).
+#' \code{skilljar:} front matter block.  Aborts if no \code{skilljar:} block is
+#' present — the file must be migrated to the nested format first.
 #'
-#' The function exits silently (returning \code{FALSE}) if either
-#' \code{skilljar.lesson_id} (nested) or \code{skilljar_lesson_id} (flat) is
-#' already present, so it is safe to call idempotently.
+#' The function exits silently (returning \code{FALSE}) if
+#' \code{skilljar.lesson_id} is already present, so it is safe to call
+#' idempotently.
 #'
 #' @section Environment variables:
 #' \describe{
