@@ -24,29 +24,18 @@
 parse_skilljar_fm <- function(fm) {
   sj <- fm[["skilljar"]]
 
-  # --- Backward-compat shim: flat keys ---
-  # If there is no `skilljar:` block but the old flat keys are present,
-  # warn and promote them into the nested structure so the rest of the
-  # pipeline keeps working.
+  # Flat keys are no longer supported — abort with a migration hint.
   flat_present <- any(c("skilljar_course_id", "skilljar_package_title",
                         "skilljar_lesson_order", "skilljar_lesson_id",
                         "display_fullscreen") %in% names(fm))
   if (is.null(sj) && flat_present) {
-    cli::cli_warn(c(
-      "Flat {.field skilljar_*} front matter keys are deprecated.",
-      "i" = "Please migrate to the nested {.field skilljar:} block:",
+    cli::cli_abort(c(
+      "This file uses the deprecated flat {.field skilljar_*} front matter format.",
+      "i" = "Migrate to the nested {.field skilljar:} block:",
       "i" = "skilljar:",
       "i" = "  course_id: \"<your-course-id>\"",
-      "i" = "See the quarjar README for the full schema."
+      "i" = "See the quarjar README for instructions."
     ))
-    sj <- list(
-      course_id          = fm[["skilljar_course_id"]],
-      package_title      = fm[["skilljar_package_title"]],
-      lesson_order       = fm[["skilljar_lesson_order"]],
-      lesson_id          = fm[["skilljar_lesson_id"]],
-      display_fullscreen = fm[["display_fullscreen"]]
-    )
-    sj <- Filter(Negate(is.null), sj)
   }
 
   if (is.null(sj)) return(NULL)
@@ -519,9 +508,8 @@ ci_write_lesson_id <- function(
 
   fm_lines <- lines[seq(sep_idx[1] + 1L, sep_idx[2] - 1L)]
 
-  # Idempotency: bail out if lesson_id already recorded under either scheme.
-  if (any(grepl("^  lesson_id:", fm_lines)) ||
-      any(grepl("^skilljar_lesson_id:", fm_lines))) {
+  # Idempotency: bail out if lesson_id already recorded.
+  if (any(grepl("^  lesson_id:", fm_lines))) {
     cli::cli_alert_info(
       "lesson_id already present in {qmd_file} - no changes written"
     )
@@ -553,15 +541,11 @@ ci_write_lesson_id <- function(
       lines[seq(insert_after + 1L, length(lines))]
     )
   } else {
-    # No skilljar: block — fall back to appending a flat top-level key (old scheme).
-    cli::cli_warn(
-      "No {.field skilljar:} block found; writing flat {.field skilljar_lesson_id} key. Consider migrating to the nested syntax."
-    )
-    new_lines <- c(
-      lines[seq_len(sep_idx[2] - 1L)],
-      paste0('skilljar_lesson_id: "', lesson_id, '"'),
-      lines[seq(sep_idx[2], length(lines))]
-    )
+    cli::cli_abort(c(
+      "No {.field skilljar:} block found in {.file {qmd_file}}.",
+      "i" = "Migrate the front matter to the nested {.field skilljar:} format before publishing.",
+      "i" = "See the quarjar README for instructions."
+    ))
   }
 
   writeLines(new_lines, qmd_file)
