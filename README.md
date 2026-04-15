@@ -1,6 +1,8 @@
 # quarjar
 
-**quarjar** (Quarto + Jar) is an R package for publishing Quarto documents as SCORM/web packages to Skilljar courses. It automates the full workflow: render → package → host → publish.
+**quarjar** (Quarto + SkillJar) is an R package for publishing Quarto documents as SCORM/web packages to Skilljar courses. It automates the full workflow: render → package → host → publish.
+
+> **Disclaimer:** quarjar is an independent open-source project and is not affiliated with, endorsed by, or supported by SkillJar, Inc.
 
 ## Installation
 
@@ -26,9 +28,10 @@ quarjar::use_skilljar_workflow()
 ```yaml
 ---
 title: "My Lesson Title"
-skilljar_course_id: "abc123"       # required — files without this are skipped
-skilljar_package_title: "..."      # optional; defaults to title
-skilljar_lesson_order: 3           # optional; explicit position in course (first publish only)
+skilljar:
+  course_id: "abc123"       # required — files without this are skipped
+  package_title: "..."      # optional; defaults to title
+  lesson_order: 3           # optional; explicit position in course (first publish only)
 ---
 ```
 
@@ -43,19 +46,19 @@ See [GITHUB_ACTION_SETUP.md](examples/GITHUB_ACTION_SETUP.md) for detailed instr
 
 ### How it works
 
-**First publish** (no `skilljar_lesson_id` in front matter):
+**First publish** (no `skilljar.lesson_id` in front matter):
 
 1. Renders the `.qmd` to HTML
 2. Creates a timestamped ZIP and publishes it to GitHub Pages under `skilljar-zips/`
 3. Creates a Skilljar web package from the GitHub Pages URL
 4. Creates a WEB_PACKAGE lesson in your course
-5. Commits `skilljar_lesson_id` back to `main` (tagged `[skip ci]`)
+5. Commits `skilljar.lesson_id` back to `main` (tagged `[skip ci]`)
 
-**Subsequent pushes** (after `skilljar_lesson_id` is present):
+**Subsequent pushes** (after `skilljar.lesson_id` is present):
 
 Steps 1–3 run identically, then the existing lesson is updated with the new web package and the old one is deleted.
 
-`skilljar_lesson_id` is never set manually — the workflow writes it back after the first successful publish. The `skilljar-zips/` subdirectory means this workflow coexists with other GitHub Pages content (pkgdown sites, etc.) without conflict.
+`skilljar.lesson_id` is never set manually — the workflow writes it back after the first successful publish. The `skilljar-zips/` subdirectory means this workflow coexists with other GitHub Pages content (pkgdown sites, etc.) without conflict.
 
 To re-trigger a failed run, make a trivial change to the `.qmd` file (an empty commit won't work — the `paths` filter requires at least one `.qmd` among the changed files):
 
