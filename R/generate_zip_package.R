@@ -126,6 +126,7 @@ generate_zip_package <- function(
   quarto::quarto_render(
     input = qmd_path,
     output_file = "index.html",
+    profile = "skilljar",
     quarto_args = c("--output-dir", temp_output_dir),
     quiet = quiet
   )
