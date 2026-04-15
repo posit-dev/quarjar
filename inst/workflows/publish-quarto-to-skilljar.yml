@@ -149,9 +149,12 @@ jobs:
       - name: Check workflow version
         run: |
           # Extract the version recorded in this workflow file.
+          # NOTE: assumes the workflow file is installed under its default name.
+          # If the file was renamed, the grep returns empty and the "not found" warning fires.
           WORKFLOW_VERSION=$(grep -m1 'quarjar-workflow-version:' \
             "${GITHUB_WORKSPACE}/.github/workflows/publish-quarto-to-skilljar.yml" \
-            | sed 's/.*quarjar-workflow-version: *//')
+            | sed 's/.*quarjar-workflow-version:[[:space:]]*//' \
+            | tr -d '[:space:]')
 
           # Get the installed quarjar package version.
           PKG_VERSION=$(Rscript -e "cat(as.character(packageVersion('quarjar')))")
