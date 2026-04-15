@@ -38,22 +38,54 @@ Before using this workflow, you must:
 \enumerate{
 \item Enable GitHub Pages in your repository (Settings → Pages → Deploy from \code{gh-pages} branch)
 \item Add your Skilljar API key as a repository secret named \code{SKILLJAR_API_KEY}
+\item Add a fine-grained PAT with Contents and Pages read/write as a repository secret named \code{REPO_PAT}
 \item Set repository permissions to "Read and write" (Settings → Actions → General)
 }
 
-\strong{Usage:}
+\strong{Quarto Front Matter Keys:}
 
-After running this function, trigger the workflow from the Actions tab in your
-GitHub repository with the following inputs:
-\itemize{
-\item \code{qmd-file}: Path to your Quarto (.qmd) file
-\item \code{course-id}: Your Skilljar course ID
-\item \code{lesson-title}: Title for the lesson
-\item \code{package-title}: (optional) Title for the web package
+All workflow configuration is driven by YAML front matter in your \code{.qmd}
+files. The workflow scans every changed \code{.qmd} file on push and reads the
+following keys:
+
+\describe{
+\item{\code{skilljar_course_id}}{\strong{Required.} The Skilljar course ID to publish
+the lesson to. Files without this key are silently skipped by the
+workflow.}
+\item{\code{title}}{The lesson title in Skilljar. Uses the standard Quarto
+\code{title} field (not \code{skilljar_}-prefixed).}
+\item{\code{skilljar_package_title}}{\emph{(Optional)} Title for the Skilljar web
+package. Defaults to the value of \code{title} when omitted.}
+\item{\code{skilljar_lesson_order}}{\emph{(Optional)} Zero-based integer that sets
+the lesson's position in the course syllabus on \strong{first publish only}.
+Ignored on subsequent updates. When omitted, the next available order is
+detected automatically.}
+\item{\code{skilljar_lesson_id}}{The Skilljar lesson ID. \strong{Do not set this
+manually.} After the first successful publish the workflow commits this
+value back to \code{main} (tagged \verb{[skip ci]}), switching future runs to the
+update-existing-lesson path.}
 }
 
+A minimal front matter example:
+
+\if{html}{\out{<div class="sourceCode yaml">}}\preformatted{---
+title: "My Lesson Title"
+skilljar_course_id: "abc123"
+---
+}\if{html}{\out{</div>}}
+
+A fully configured example:
+
+\if{html}{\out{<div class="sourceCode yaml">}}\preformatted{---
+title: "Module 1: Getting Started"
+skilljar_course_id: "abc123"
+skilljar_package_title: "Module 1 Package"
+skilljar_lesson_order: 0
+---
+}\if{html}{\out{</div>}}
+
 For complete setup instructions and troubleshooting, see the
-\href{https://github.com/posit-dev/quarjar/blob/main/GITHUB_ACTION_SETUP.md}{setup guide}.
+\href{https://github.com/posit-dev/quarjar/blob/main/examples/GITHUB_ACTION_SETUP.md}{setup guide}.
 }
 \examples{
 \dontrun{

@@ -427,19 +427,36 @@ Steps 1–5 run identically, then:
 
 #### Front Matter Configuration
 
-All workflow configuration lives in your `.qmd` front matter — no workflow inputs needed:
+All workflow configuration lives in your `.qmd` front matter — no workflow inputs needed.
+The workflow scans every changed `.qmd` file on push and reads the following keys:
+
+| Key | Required | Description |
+|-----|----------|-------------|
+| `title` | Yes | Lesson title in Skilljar. Uses the standard Quarto `title` field. |
+| `skilljar_course_id` | **Required** | Skilljar course ID to publish to. Files without this key are silently skipped. |
+| `skilljar_package_title` | Optional | Title for the Skilljar web package. Defaults to `title` when omitted. |
+| `skilljar_lesson_order` | Optional | Zero-based integer position in the course syllabus. Applied on first publish only; ignored on updates. Auto-detected when omitted. |
+| `skilljar_lesson_id` | — | **Do not set manually.** Committed back to `main` (tagged `[skip ci]`) by the workflow after the first successful publish, switching future runs to the update-existing-lesson path. |
+
+Minimal example:
 
 ```yaml
 ---
-title: "My Lesson Title"           # used as the lesson title in Skilljar
-skilljar_course_id: "abc123"       # required — files without this are skipped
-skilljar_package_title: "..."      # optional; defaults to title
-skilljar_lesson_order: 3           # optional; explicit position in course (create only)
-skilljar_lesson_id: "xyz789"       # committed directly to main after first publish
+title: "My Lesson Title"
+skilljar_course_id: "abc123"
 ---
 ```
 
-`skilljar_lesson_id` is never set manually. The workflow commits it directly to `main` (with `[skip ci]`) after the first successful publish, activating the update-on-push path for future runs.
+Fully configured example:
+
+```yaml
+---
+title: "Module 1: Getting Started"
+skilljar_course_id: "abc123"
+skilljar_package_title: "Module 1 Package"
+skilljar_lesson_order: 0
+---
+```
 
 To re-trigger a failed run, make a trivial change to the `.qmd` file (the
 `paths` filter requires at least one `.qmd` to be modified — an empty commit
