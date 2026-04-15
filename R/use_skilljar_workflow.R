@@ -132,7 +132,7 @@ use_skilljar_workflow <- function(overwrite = FALSE) {
   ))
 
   cli::cli_alert_info(
-    "For complete setup instructions, see: {.url https://github.com/posit-dev/quarjar/blob/main/GITHUB_ACTION_SETUP.md}"
+    "For complete setup instructions, see: {.url https://github.com/posit-dev/quarjar/blob/main/examples/GITHUB_ACTION_SETUP.md}"
   )
 
   invisible(target_path)
