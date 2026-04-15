@@ -466,15 +466,14 @@ ci_delete_old_web_package <- function(
 
 #' Inject Skilljar lesson ID into QMD front matter (CI helper)
 #'
-#' Reads a Quarto document, appends \code{skilljar_lesson_id} to the YAML
-#' front matter (if not already present), and writes the file back in place.
-#' This replaces the Python front-matter-patching script used in the
-#' "Write lesson ID back to main" workflow step, eliminating the Python
-#' dependency for that step.
+#' Reads a Quarto document and inserts \code{lesson_id} inside the nested
+#' \code{skilljar:} front matter block.  Falls back to appending a flat
+#' \code{skilljar_lesson_id:} top-level key when no \code{skilljar:} block is
+#' present (backward compatibility for repos that haven't migrated yet).
 #'
-#' The function exits silently (returning \code{FALSE}) if
-#' \code{skilljar_lesson_id} is already present, so it is safe to call
-#' idempotently.
+#' The function exits silently (returning \code{FALSE}) if either
+#' \code{skilljar.lesson_id} (nested) or \code{skilljar_lesson_id} (flat) is
+#' already present, so it is safe to call idempotently.
 #'
 #' @section Environment variables:
 #' \describe{
@@ -486,12 +485,10 @@ ci_delete_old_web_package <- function(
 #' @param lesson_id Character. Skilljar lesson ID to inject.
 #'
 #' @return Invisibly returns \code{TRUE} if the file was modified,
-#'   \code{FALSE} if \code{skilljar_lesson_id} was already present (file
-#'   left unchanged).
+#'   \code{FALSE} if the lesson ID was already present (file left unchanged).
 #'
 #' @examples
 #' \dontrun{
-#' # In a GitHub Actions step (shell: Rscript {0}):
 #' library(quarjar)
 #' ci_write_lesson_id()
 #' }
@@ -513,7 +510,7 @@ ci_write_lesson_id <- function(
     rlang::abort(paste("File not found:", qmd_file))
   }
 
-  lines <- readLines(qmd_file, warn = FALSE)
+  lines   <- readLines(qmd_file, warn = FALSE)
   sep_idx <- which(grepl("^---\\s*$", lines))
 
   if (length(sep_idx) < 2) {
@@ -522,21 +519,51 @@ ci_write_lesson_id <- function(
 
   fm_lines <- lines[seq(sep_idx[1] + 1L, sep_idx[2] - 1L)]
 
-  if (any(grepl("^skilljar_lesson_id:", fm_lines))) {
+  # Idempotency: bail out if lesson_id already recorded under either scheme.
+  if (any(grepl("^  lesson_id:", fm_lines)) ||
+      any(grepl("^skilljar_lesson_id:", fm_lines))) {
     cli::cli_alert_info(
-      "skilljar_lesson_id already present in {qmd_file} - no changes written"
+      "lesson_id already present in {qmd_file} - no changes written"
     )
     return(invisible(FALSE))
   }
 
-  # Append the new field just before the closing ---
-  new_lines <- c(
-    lines[seq_len(sep_idx[2] - 1L)],
-    paste0('skilljar_lesson_id: "', lesson_id, '"'),
-    lines[seq(sep_idx[2], length(lines))]
-  )
+  # Locate the `skilljar:` block and find the last indented line in it.
+  sj_line <- which(grepl("^skilljar:\\s*$", fm_lines))
+
+  if (length(sj_line) > 0) {
+    # Find the extent of the skilljar: block (contiguous indented lines after it).
+    sj_start  <- sj_line[1]
+    block_end <- sj_start
+    for (i in seq(sj_start + 1L, length(fm_lines))) {
+      if (grepl("^  ", fm_lines[i])) {
+        block_end <- i
+      } else {
+        break
+      }
+    }
+
+    # Insert `  lesson_id: "..."` right after the last line of the block.
+    insert_after <- sep_idx[1] + block_end  # absolute line index
+    new_line     <- paste0('  lesson_id: "', lesson_id, '"')
+    new_lines    <- c(
+      lines[seq_len(insert_after)],
+      new_line,
+      lines[seq(insert_after + 1L, length(lines))]
+    )
+  } else {
+    # No skilljar: block — fall back to appending a flat top-level key (old scheme).
+    cli::cli_warn(
+      "No {.field skilljar:} block found; writing flat {.field skilljar_lesson_id} key. Consider migrating to the nested syntax."
+    )
+    new_lines <- c(
+      lines[seq_len(sep_idx[2] - 1L)],
+      paste0('skilljar_lesson_id: "', lesson_id, '"'),
+      lines[seq(sep_idx[2], length(lines))]
+    )
+  }
 
   writeLines(new_lines, qmd_file)
-  cli::cli_alert_success("Wrote skilljar_lesson_id to {qmd_file}")
+  cli::cli_alert_success("Wrote lesson_id to {qmd_file}")
   invisible(TRUE)
 }

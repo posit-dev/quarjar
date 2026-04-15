@@ -76,3 +76,66 @@ test_that("parse_skilljar_fm returns NULL when neither nested nor flat keys pres
   fm <- list(title = "Just a Quarto doc", format = "html")
   expect_null(parse_skilljar_fm(fm))
 })
+
+test_that("ci_write_lesson_id inserts lesson_id into nested skilljar block", {
+  tmp <- tempfile(fileext = ".qmd")
+  writeLines(c(
+    "---",
+    "title: Test",
+    "skilljar:",
+    "  course_id: \"abc123\"",
+    "---",
+    "",
+    "Body text."
+  ), tmp)
+  withr::defer(unlink(tmp))
+
+  result <- ci_write_lesson_id(qmd_file = tmp, lesson_id = "les_999")
+  expect_true(result)
+
+  lines <- readLines(tmp, warn = FALSE)
+  # lesson_id should appear inside the skilljar block (indented with 2 spaces)
+  expect_true(any(grepl("^  lesson_id: \"les_999\"", lines)))
+  # and NOT as a bare top-level key
+  expect_false(any(grepl("^skilljar_lesson_id:", lines)))
+  expect_false(any(grepl("^lesson_id:", lines)))
+})
+
+test_that("ci_write_lesson_id is idempotent when lesson_id already present (nested)", {
+  tmp <- tempfile(fileext = ".qmd")
+  writeLines(c(
+    "---",
+    "title: Test",
+    "skilljar:",
+    "  course_id: \"abc123\"",
+    "  lesson_id: \"les_existing\"",
+    "---",
+    "",
+    "Body."
+  ), tmp)
+  withr::defer(unlink(tmp))
+
+  result <- ci_write_lesson_id(qmd_file = tmp, lesson_id = "les_new")
+  expect_false(result)  # file unchanged
+
+  lines <- readLines(tmp, warn = FALSE)
+  expect_false(any(grepl("les_new", lines)))
+  expect_true(any(grepl("les_existing", lines)))
+})
+
+test_that("ci_write_lesson_id is idempotent when flat skilljar_lesson_id already present", {
+  tmp <- tempfile(fileext = ".qmd")
+  writeLines(c(
+    "---",
+    "title: Old style",
+    "skilljar_course_id: \"abc123\"",
+    "skilljar_lesson_id: \"les_old\"",
+    "---",
+    "",
+    "Body."
+  ), tmp)
+  withr::defer(unlink(tmp))
+
+  result <- ci_write_lesson_id(qmd_file = tmp, lesson_id = "les_new")
+  expect_false(result)  # already present, no changes
+})
