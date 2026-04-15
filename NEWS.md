@@ -1,3 +1,25 @@
+# quarjar (development)
+
+## Breaking changes
+
+* Flat `skilljar_*` front matter keys no longer emit a deprecation warning —
+  they now abort with a migration error. Files using the old format will
+  fail immediately with an actionable message pointing to the README.
+
+## New features
+
+* Workflow version check: the GitHub Actions workflow now warns (non-blocking)
+  at runtime when the workflow template version does not match the installed
+  `quarjar` package version.
+* Post-writeback YAML validation: after the workflow commits `skilljar.lesson_id`
+  back to `main`, a new step re-parses the front matter and confirms the field
+  is present and the YAML is still valid.
+
+## Bug fixes / test coverage
+
+* Added test for `ci_write_lesson_id()` when `skilljar:` is the last front
+  matter line (empty block, `seq_len(0)` edge case).
+
 # quarjar 0.2.0
 
 ## Breaking changes (with backward compatibility)
