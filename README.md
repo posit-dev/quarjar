@@ -106,7 +106,22 @@ Lesson order is auto-detected (new lesson appended at end of course) unless you 
 Sys.setenv(SKILLJAR_API_KEY = "your-api-key")
 ```
 
-**Base URL** — defaults to `https://api.skilljar.com`; override per session if needed:
+For the GitHub Actions workflow, use `skilljar.lesson_order` in the `.qmd` front matter:
+
+```yaml
+---
+title: "Module 1"
+skilljar:
+  course_id: "abc123"
+  lesson_order: 2   # sets position on first publish; ignored on updates
+---
+```
+
+If omitted, the workflow auto-detects the next available order, same as the R functions.
+
+### Updating a lesson preserves its order
+
+`update_lesson()` sends only `content_web_package_id` in the PATCH request. The lesson's position in the course is unchanged when you update its web package content — intentionally, so republishing a lesson never moves it.
 
 ```r
 options(quarjar.base_url = "https://api.skilljar.com")

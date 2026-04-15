@@ -16,19 +16,16 @@ ci_write_lesson_id(
 }
 \value{
 Invisibly returns \code{TRUE} if the file was modified,
-\code{FALSE} if \code{skilljar_lesson_id} was already present (file
-left unchanged).
+\code{FALSE} if the lesson ID was already present (file left unchanged).
 }
 \description{
-Reads a Quarto document, appends \code{skilljar_lesson_id} to the YAML
-front matter (if not already present), and writes the file back in place.
-This replaces the Python front-matter-patching script used in the
-"Write lesson ID back to main" workflow step, eliminating the Python
-dependency for that step.
+Reads a Quarto document and inserts \code{lesson_id} inside the nested
+\code{skilljar:} front matter block.  Aborts if no \code{skilljar:} block is
+present — the file must be migrated to the nested format first.
 }
 \details{
 The function exits silently (returning \code{FALSE}) if
-\code{skilljar_lesson_id} is already present, so it is safe to call
+\code{skilljar.lesson_id} is already present, so it is safe to call
 idempotently.
 }
 \section{Environment variables}{
@@ -41,7 +38,6 @@ idempotently.
 
 \examples{
 \dontrun{
-# In a GitHub Actions step (shell: Rscript {0}):
 library(quarjar)
 ci_write_lesson_id()
 }
