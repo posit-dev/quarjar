@@ -1,3 +1,4 @@
+# quarjar-workflow-version: 0.2.0
 name: Publish Quarto to Skilljar via GitHub Pages
 
 on:
@@ -144,6 +145,24 @@ jobs:
         run: |
           pak::pak("posit-dev/quarjar")
         shell: Rscript {0}
+
+      - name: Check workflow version
+        run: |
+          # Extract the version recorded in this workflow file.
+          WORKFLOW_VERSION=$(grep -m1 'quarjar-workflow-version:' \
+            "${GITHUB_WORKSPACE}/.github/workflows/publish-quarto-to-skilljar.yml" \
+            | sed 's/.*quarjar-workflow-version: *//')
+
+          # Get the installed quarjar package version.
+          PKG_VERSION=$(Rscript -e "cat(as.character(packageVersion('quarjar')))")
+
+          if [ -z "${WORKFLOW_VERSION}" ]; then
+            echo "::warning::quarjar: workflow version comment not found. Add '# quarjar-workflow-version: X.Y.Z' to the top of this file."
+          elif [ "${WORKFLOW_VERSION}" != "${PKG_VERSION}" ]; then
+            echo "::warning::quarjar: workflow template is version ${WORKFLOW_VERSION} but the installed quarjar package is ${PKG_VERSION}. Run quarjar::use_skilljar_workflow(overwrite = TRUE) to update the workflow."
+          else
+            echo "Workflow version ${WORKFLOW_VERSION} matches installed quarjar ${PKG_VERSION}."
+          fi
 
       - name: Generate ZIP package from Quarto
         id: generate-zip
