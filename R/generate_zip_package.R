@@ -26,6 +26,14 @@
 #'   \item Returns the absolute path to the ZIP file
 #' }
 #'
+#' \strong{Quarto profile:} The document is always rendered using the
+#' \code{skilljar} Quarto profile. If a \code{_quarto-skilljar.yml} file exists
+#' in your project root, Quarto merges it over your base \code{_quarto.yml}
+#' during rendering. This lets you apply Skilljar-specific format settings
+#' (e.g., disabling the table of contents, custom branding) without affecting
+#' your regular website build. If no such file exists, Quarto silently ignores
+#' the profile and renders with your base configuration unchanged.
+#'
 #' The function uses \code{withr::with_dir()} around \code{utils::zip()} to safely
 #' manage working directory changes, ensuring the working directory is always restored even if errors occur.
 #'

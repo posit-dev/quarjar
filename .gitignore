@@ -7,3 +7,7 @@
 .env
 examples/**
 docs/skilljar_api.yml
+
+/.quarto/
+**/*.quarto_ipynb
+.claude/settings.local.json

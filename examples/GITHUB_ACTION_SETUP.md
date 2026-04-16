@@ -108,10 +108,12 @@ This allows the workflow to push to both the `gh-pages` branch and `main`.
 
 ### Triggering the Workflow
 
-The workflow runs automatically on every push to `main` that modifies a `.qmd` file containing a `skilljar_course_id` in its front matter. There is no manual trigger — to re-run a failed job, push an empty commit:
+The workflow runs automatically on every push to `main` that modifies a `.qmd` file containing a `skilljar.course_id` in its front matter. There is no manual trigger — to re-run a failed job, make a trivial change to the relevant `.qmd` file (an empty commit will not work because the `paths` filter requires at least one `.qmd` among the changed files):
 
 ```bash
-git commit --allow-empty -m "re-trigger: republish to Skilljar"
+echo "" >> module1.qmd
+git add module1.qmd
+git commit -m "re-trigger: republish to Skilljar"
 git push
 ```
 
@@ -132,11 +134,13 @@ my-training-repo/
 ├── .github/
 │   └── workflows/
 │       └── publish-quarto-to-skilljar.yml
-├── lessons/
-│   ├── module1.qmd
-│   ├── module2.qmd
-│   └── module3.qmd
-└── README.md
+├── _quarto.yml              # optional base project config
+├── _quarto-skilljar.yml     # optional Skilljar-specific overrides
+├── module1.qmd              # .qmd files must be at the root, not in sub-folders
+├── module2.qmd
+├── module3.qmd
+└── images/                  # assets can live in sub-folders
+    └── diagram.png
 ```
 
 ### Workflow Output

@@ -11,6 +11,36 @@
 remotes::install_github("posit-dev/quarjar")
 ```
 
+## Project Setup
+
+### File structure
+
+`.qmd` files must live at the **root of your repository** — not in sub-folders. Assets referenced by those files (images, CSS, data files) can be organized in sub-folders.
+
+```
+my-training-repo/
+├── .github/
+│   └── workflows/
+│       └── publish-quarto-to-skilljar.yml
+├── _quarto.yml              # optional base project config
+├── _quarto-skilljar.yml     # optional Skilljar-specific overrides (see below)
+├── module1.qmd
+├── module2.qmd
+├── module3.qmd
+└── images/
+    └── diagram.png
+```
+
+This is a current Quarto limitation: when rendering individual files for packaging, source files in sub-directories are not reliably bundled.
+
+### Quarto profile
+
+quarjar renders each `.qmd` using the `skilljar` Quarto [profile](https://quarto.org/docs/projects/profiles.html). If a `_quarto-skilljar.yml` file exists at the root of your repository, Quarto merges it over your base `_quarto.yml` during packaging. Use it to apply any format settings that should differ between your regular build and the Skilljar lesson output.
+
+### Authoring guidelines
+
+Do not link between modules. Each lesson is a standalone web package inside Skilljar — cross-lesson links will break learner navigation since Skilljar controls the lesson sequence.
+
 ## Automated Pipeline via GitHub Actions
 
 The primary use case is a push-triggered GitHub Actions pipeline. Every time you push a change to a `.qmd` file, the workflow renders it, packages it, and publishes or updates the corresponding Skilljar lesson — no manual steps required.
