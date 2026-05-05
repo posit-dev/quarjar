@@ -137,6 +137,7 @@ use_skilljar_workflow <- function(overwrite = FALSE) {
         cli::cli_alert_info("Workflow installation cancelled.")
         return(invisible(NULL))
       }
+      overwrite <- TRUE
     } else {
       # Non-interactive and file exists and overwrite not specified
       cli::cli_abort(
