@@ -51,7 +51,7 @@ jobs:
 
           # Determine whether a config file was touched in this push.
           try:
-              modified = json.loads(os.environ.get('HEAD_COMMIT_MODIFIED', '[]') or '[]')
+              modified = json.loads(os.environ.get('HEAD_COMMIT_MODIFIED', '[]') or '[]') or []
           except Exception:
               modified = []
           config_changed = any(
@@ -120,14 +120,6 @@ jobs:
               out.write(f"matrix={json.dumps(matrix)}\n")
               out.write(f"has_items={'true' if items else 'false'}\n")
           PYEOF
-
-      - name: Debug matrix output
-        env:
-          MATRIX: ${{ steps.set-matrix.outputs.matrix }}
-          HAS_ITEMS: ${{ steps.set-matrix.outputs.has_items }}
-        run: |
-          echo "has_items: ${HAS_ITEMS}"
-          echo "matrix item count: $(echo '${MATRIX}' | python3 -c 'import json,sys; m=json.load(sys.stdin); print(len(m.get("include", [])))')" 2>/dev/null || true
 
   render-and-publish:
     needs: detect
