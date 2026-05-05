@@ -159,8 +159,8 @@ HTTP Basic Auth:
 **Solution:** Set via `Sys.setenv(SKILLJAR_API_KEY = "key")`
 
 ### Issue 4: GitHub Actions workflow fails with "Package installation failed"
-**Cause:** `REPO_PAT` secret not set, or PAT has expired
-**Solution:** Add/renew the `REPO_PAT` secret (fine-grained PAT with Contents read/write); workflow uses `pak::pak("posit-dev/quarjar")` with `GITHUB_PAT` env var
+**Cause:** Rate limit hit on unauthenticated GitHub API requests (60/hour shared across the runner pool)
+**Solution:** The workflow uses the automatically-injected `GITHUB_TOKEN` (authenticated, 5000/hour limit) — no additional secret required. If failures persist, check that workflow permissions are set to "Read and write".
 
 ### Issue 5: GitHub Pages URL not accessible immediately
 **Cause:** GitHub Pages deployment is asynchronous
@@ -329,8 +329,7 @@ cp inst/workflows/publish-quarto-to-skilljar.yml .github/workflows/
 Users must configure:
 1. GitHub Pages (Settings → Pages → Deploy from `gh-pages` branch)
 2. Repository secret `SKILLJAR_API_KEY`
-3. Repository secret `REPO_PAT` (fine-grained PAT with Contents read/write and Pages read/write)
-4. Repository permissions to "Read and write" (Settings → Actions → General)
+3. Repository permissions to "Read and write" (Settings → Actions → General)
 
 See examples/GITHUB_ACTION_SETUP.md for complete setup instructions.
 
@@ -416,7 +415,7 @@ Key resources:
 13. **`skilljar_lesson_order` front matter field** controls lesson position on the create path only; ignored on updates
 14. **Direct writeback** — after first publish the workflow commits `skilljar_lesson_id` directly to `main`; the commit message includes `[skip ci]` so it does not re-trigger the workflow; uses `git reset --hard origin/main` before committing to handle concurrent matrix jobs and mid-run user pushes
 15. **No `workflow_dispatch`** — the workflow is push-only; re-triggering a failed run requires a trivial change to the `.qmd` file (an empty commit does **not** work — the `paths: ["**/*.qmd"]` filter requires at least one `.qmd` to be among the changed files)
-16. **`REPO_PAT` secret required** — used as `GITHUB_PAT` for `pak::pak("posit-dev/quarjar")` installation; fine-grained PAT needs Contents read/write and Pages read/write
+16. **No `REPO_PAT` secret required** — `pak::pak("posit-dev/quarjar")` relies on the automatically-injected `GITHUB_TOKEN` (authenticated, sufficient for public repos)
 
 When modifying code:
 - Maintain sensible defaults (api_key from env, type="MODULAR", base_url via quarjar_base_url(), etc.)
@@ -426,7 +425,7 @@ When modifying code:
 - Test with devtools::load_all() before committing
 
 When modifying GitHub Actions workflow:
-- Always use `pak::pak()` with `GITHUB_PAT: ${{ secrets.REPO_PAT }}` for quarjar installation (must work from any repo)
+- Use `pak::pak()` without an explicit `GITHUB_PAT` env var — the automatically-injected `GITHUB_TOKEN` is sufficient for installing from the public quarjar repo
 - Keep timestamped filenames for version management
 - Maintain retry logic for URL verification (GitHub Pages is async)
 - Keep cleanup logic (retain 5 most recent ZIPs in skilljar-zips/ subdirectory)

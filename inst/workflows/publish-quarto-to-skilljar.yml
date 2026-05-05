@@ -1,4 +1,4 @@
-# quarjar-workflow-version: 0.2.1
+# quarjar-workflow-version: 0.2.2
 name: Publish Quarto to Skilljar via GitHub Pages
 
 on:
@@ -192,10 +192,7 @@ jobs:
         shell: Rscript {0}
 
       - name: Install quarjar package
-        env:
-          GITHUB_PAT: ${{ secrets.REPO_PAT }}
-        run: |
-          pak::pak("posit-dev/quarjar")
+        run: pak::pak("posit-dev/quarjar")
         shell: Rscript {0}
 
       - name: Check workflow version

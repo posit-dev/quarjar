@@ -45,17 +45,6 @@ Add the required secrets to your repository:
 | Name | Description | Example |
 |------|-------------|---------|
 | `SKILLJAR_API_KEY` | Your Skilljar API key | `sk_live_abc123def456...` |
-| `REPO_PAT` | Fine-grained PAT for installing the quarjar package from GitHub | (see below) |
-
-#### Creating the `REPO_PAT`
-
-Create a fine-grained personal access token at **GitHub → Settings → Developer settings → Personal access tokens → Fine-grained tokens** with the following permissions on your repository:
-
-| Permission | Level |
-|---|---|
-| Contents | Read and write |
-| Pages | Read and write |
-| Metadata | Read (mandatory) |
 
 #### Getting Your Skilljar API Key
 
