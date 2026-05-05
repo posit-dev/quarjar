@@ -69,7 +69,6 @@ skilljar:
 
 - Enable GitHub Pages: Settings → Pages → Deploy from `gh-pages` branch
 - Add secret `SKILLJAR_API_KEY` (Settings → Secrets and variables → Actions)
-- Add secret `REPO_PAT` — a fine-grained PAT with Contents and Pages read/write
 - Set workflow permissions to "Read and write" (Settings → Actions → General)
 
 See [GITHUB_ACTION_SETUP.md](examples/GITHUB_ACTION_SETUP.md) for detailed instructions.

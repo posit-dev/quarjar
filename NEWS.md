@@ -1,4 +1,4 @@
-# quarjar (development)
+# quarjar 0.2.2
 
 ## Breaking changes
 
@@ -14,6 +14,22 @@
 * Post-writeback YAML validation: after the workflow commits `skilljar.lesson_id`
   back to `main`, a new step re-parses the front matter and confirms the field
   is present and the YAML is still valid.
+
+## Workflow improvements
+
+* The `REPO_PAT` secret is no longer required. The workflow now relies on the
+  automatically-injected `GITHUB_TOKEN` for installing quarjar from GitHub,
+  which is sufficient for public repositories and avoids the setup burden of
+  creating and maintaining a personal access token.
+* Added path triggers for `_quarto-skilljar.yml` and the workflow file itself.
+  Pushing either config file now republishes all lessons, since any lesson
+  could be affected.
+* The `detect` job is now guarded against the lesson-ID writeback commit
+  re-triggering the workflow (`github.actor != 'github-actions[bot]'`).
+* Fixed `actions/checkout` version reference.
+* Added `libarchive-dev` system dependency (required by `pak` on Ubuntu Noble).
+* Added `knitr` and `rmarkdown` to R dependencies (required for Quarto rendering).
+* Added `shinylive` as a non-blocking optional dependency (`continue-on-error: true`).
 
 ## Bug fixes / test coverage
 

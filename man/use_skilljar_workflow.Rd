@@ -38,7 +38,6 @@ Before using this workflow, you must:
 \enumerate{
 \item Enable GitHub Pages in your repository (Settings → Pages → Deploy from \code{gh-pages} branch)
 \item Add your Skilljar API key as a repository secret named \code{SKILLJAR_API_KEY}
-\item Add a fine-grained PAT with Contents and Pages read/write as a repository secret named \code{REPO_PAT}
 \item Set repository permissions to "Read and write" (Settings → Actions → General)
 }
 
