@@ -1,10 +1,13 @@
-# quarjar-workflow-version: 0.2.0
+# quarjar-workflow-version: 0.2.1
 name: Publish Quarto to Skilljar via GitHub Pages
 
 on:
   push:
-    branches: [main]
-    paths: ["**/*.qmd"]
+    branches: [ main ]
+    paths:
+      - "**/*.qmd"
+      - "**/_quarto-skilljar.yml"
+      - "**/publish-quarto-to-skilljar.yml"
 
 permissions:
   contents: write
@@ -13,6 +16,8 @@ permissions:
 
 jobs:
   detect:
+    # Prevent the lesson-ID writeback commit from re-triggering this workflow.
+    if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
@@ -23,6 +28,12 @@ jobs:
 
       - name: Get changed QMD files
         id: changed-files
+        # Skip per-file change detection when a config file changed — we can't
+        # know which lessons were affected, so publish everything.
+        if: >
+          !contains(github.event.head_commit.modified, '_quarto-skilljar.yml')
+          && !contains(github.event.head_commit.modified,
+          'publish-quarto-to-skilljar.yml')
         uses: tj-actions/changed-files@v47
         with:
           files: "**/*.qmd"
@@ -31,24 +42,35 @@ jobs:
         id: set-matrix
         env:
           CHANGED_FILES: ${{ steps.changed-files.outputs.all_changed_files }}
+          # Config-file pushes publish all lessons since we can't know which
+          # were affected.
+          HEAD_COMMIT_MODIFIED: ${{ toJson(github.event.head_commit.modified) }}
         run: |
           python3 << 'PYEOF'
-          import yaml, json, os, re
+          import yaml, json, os, re, glob
 
-          changed = os.environ.get('CHANGED_FILES', '').strip()
-          files = changed.split() if changed else []
-          items = []
+          # Determine whether a config file was touched in this push.
+          try:
+              modified = json.loads(os.environ.get('HEAD_COMMIT_MODIFIED', '[]') or '[]')
+          except Exception:
+              modified = []
+          config_changed = any(
+              '_quarto-skilljar.yml' in f or 'publish-quarto-to-skilljar.yml' in f
+              for f in modified
+          )
+
           FRONT_MATTER_SEP = re.compile(r'^---\s*$', re.MULTILINE)
-          for f in files:
+
+          def parse_qmd(f):
               try:
                   with open(f) as fh:
                       content = fh.read()
                   parts = FRONT_MATTER_SEP.split(content, maxsplit=2)
-                  # parts[0] must be empty (file starts with ---) and
-                  # parts[1] is the front matter, parts[2] is the body
+                  # parts[0] must be empty (file starts with ---),
+                  # parts[1] is the front matter, parts[2] is the body.
                   if len(parts) < 3 or parts[0].strip() != '':
                       print(f"Skipping {f}: no YAML front matter found")
-                      continue
+                      return None
                   fm = yaml.safe_load(parts[1]) or {}
 
                   # Only the nested skilljar: block is supported.
@@ -58,27 +80,42 @@ jobs:
                   sj = fm.get('skilljar', {}) or {}
                   course_id = str(sj.get('course_id', '')).strip()
 
-                  if course_id:
-                      items.append({
-                          'qmd_file': f,
-                          'course_id': course_id,
-                          'lesson_title': str(fm.get('title', f)),
-                          'package_title': str(sj.get('package_title', '')),
-                          'base_url': 'https://api.skilljar.com',
-                          'display_fullscreen': bool(
-                              sj.get('display_fullscreen', True)),
-                          'lesson_order': (sj['lesson_order'] if 'lesson_order' in sj
-                                           else None),
-                          'lesson_id': str(sj.get('lesson_id', '')),
-                      })
-                      print(f"Added {f}: course_id={course_id!r}")
-                  else:
+                  if not course_id:
                       print(f"Skipping {f}: no skilljar.course_id in front matter")
+                      return None
+
+                  return {
+                      'qmd_file': f,
+                      'course_id': course_id,
+                      'lesson_title': str(fm.get('title', f)),
+                      'package_title': str(sj.get('package_title', '')),
+                      'base_url': 'https://api.skilljar.com',
+                      'display_fullscreen': bool(sj.get('display_fullscreen', True)),
+                      'lesson_order': sj.get('lesson_order', None),
+                      'lesson_id': str(sj.get('lesson_id', '')),
+                  }
               except Exception as e:
                   print(f"Warning: could not parse {f}: {e}")
+                  return None
+
+          if config_changed:
+              print("Config file changed — publishing all lessons")
+              candidates = glob.glob('**/content.qmd', recursive=True)
+              files = sorted(candidates)
+          else:
+              changed = os.environ.get('CHANGED_FILES', '').strip()
+              files = changed.split() if changed else []
+              print(f"Publishing {len(files)} changed file(s)")
+
+          items = []
+          for f in files:
+              item = parse_qmd(f)
+              if item:
+                  items.append(item)
+                  print(f"Added {f}: course_id={item['course_id']!r}")
 
           matrix = {'include': items}
-          print(f"Matrix: {json.dumps(matrix)}")
+          print(f"Matrix ({len(items)} items): {json.dumps(matrix)}")
           with open(os.environ['GITHUB_OUTPUT'], 'a') as out:
               out.write(f"matrix={json.dumps(matrix)}\n")
               out.write(f"has_items={'true' if items else 'false'}\n")
@@ -90,7 +127,7 @@ jobs:
           HAS_ITEMS: ${{ steps.set-matrix.outputs.has_items }}
         run: |
           echo "has_items: ${HAS_ITEMS}"
-          echo "matrix: ${MATRIX}"
+          echo "matrix item count: $(echo '${MATRIX}' | python3 -c 'import json,sys; m=json.load(sys.stdin); print(len(m.get("include", [])))')" 2>/dev/null || true
 
   render-and-publish:
     needs: detect
@@ -122,21 +159,36 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ env.R_LIBS_USER }}
-          key:
+          key: >-
             ${{ runner.os }}-r-${{ steps.setup-r.outputs.installed-r-version
             }}-${{ hashFiles('**/publish-quarto-to-skilljar.yml') }}
-          restore-keys:
+          restore-keys: >-
             ${{ runner.os }}-r-${{ steps.setup-r.outputs.installed-r-version }}-
 
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libcurl4-openssl-dev
+          sudo apt-get install -y libcurl4-openssl-dev libarchive-dev
 
       - name: Install R dependencies
         run: |
           options(repos = c(CRAN = "https://p3m.dev/cran/__linux__/noble/latest"))
-          install.packages(c("pak", "httr2", "rlang", "jsonlite", "curl", "cli", "withr"))
+          install.packages(c(
+            "pak",
+            # quarjar core deps
+            "httr2", "rlang", "jsonlite", "curl", "cli", "withr",
+            # Quarto rendering
+            "knitr", "rmarkdown"
+          ))
+        shell: Rscript {0}
+
+      - name: Install optional rendering packages
+        # shinylive is recommended for interactive lessons but not required for
+        # all content. Install separately so a failure here is non-blocking.
+        continue-on-error: true
+        run: |
+          options(repos = c(CRAN = "https://p3m.dev/cran/__linux__/noble/latest"))
+          install.packages("shinylive")
         shell: Rscript {0}
 
       - name: Install quarjar package
@@ -156,7 +208,6 @@ jobs:
             | sed 's/.*quarjar-workflow-version:[[:space:]]*//' \
             | tr -d '[:space:]')
 
-          # Get the installed quarjar package version.
           PKG_VERSION=$(Rscript -e "cat(as.character(packageVersion('quarjar')))")
 
           if [ -z "${WORKFLOW_VERSION}" ]; then
@@ -181,38 +232,27 @@ jobs:
           ZIP_PATH: ${{ steps.generate-zip.outputs.zip_path }}
           ZIP_FILENAME: ${{ steps.generate-zip.outputs.zip_filename }}
         run: |
-          # Configure git
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
-          # Create or switch to gh-pages branch
           git fetch origin gh-pages 2>/dev/null || true
           if git rev-parse --verify origin/gh-pages >/dev/null 2>&1; then
-            # Branch exists, check it out
             git checkout gh-pages
           else
-            # Branch doesn't exist, create it
             git checkout --orphan gh-pages
-            # Remove all files from staging if this is a new branch
             git rm -rf . 2>/dev/null || true
           fi
 
-          # Create skilljar-zips directory if it doesn't exist
           mkdir -p skilljar-zips
-
-          # Copy the new ZIP file to subdirectory
           cp "${ZIP_PATH}" skilljar-zips/
 
-          # Clean up old ZIP files in subdirectory (keep only the 5 most recent)
+          # Keep only the 5 most recent ZIP files.
           cd skilljar-zips
           ls -t *.zip 2>/dev/null | tail -n +6 | xargs -r rm -f
           cd ..
 
-          # Add and commit only the skilljar-zips directory
           git add skilljar-zips/
           git commit -m "Deploy ${ZIP_FILENAME} to GitHub Pages" || echo "No changes to commit"
-
-          # Push to gh-pages (no --force to preserve other content)
           git push origin gh-pages
 
       - name: Wait for GitHub Pages deployment
@@ -220,42 +260,33 @@ jobs:
         env:
           ZIP_FILENAME: ${{ steps.generate-zip.outputs.zip_filename }}
         run: |
-          # Construct GitHub Pages URL (in skilljar-zips subdirectory)
           REPO_OWNER="${GITHUB_REPOSITORY_OWNER}"
           REPO_NAME="${GITHUB_REPOSITORY##*/}"
           ZIP_URL="https://${REPO_OWNER}.github.io/${REPO_NAME}/skilljar-zips/${ZIP_FILENAME}"
 
           echo "Waiting for GitHub Pages to deploy: ${ZIP_URL}"
 
-          # Retry logic: check if URL is accessible
-          MAX_ATTEMPTS=30  # 5 minutes total (30 * 10 seconds)
+          MAX_ATTEMPTS=30
           ATTEMPT=1
           SUCCESS=0
 
           while [ $ATTEMPT -le $MAX_ATTEMPTS ]; do
-            echo "Attempt ${ATTEMPT}/${MAX_ATTEMPTS}: Checking if ${ZIP_URL} is accessible..."
-
-            # Use curl with specific flags:
-            # -s: silent, -f: fail on HTTP errors, -I: HEAD request only
-            # -L: follow redirects, --max-time 10: timeout after 10 seconds
+            echo "Attempt ${ATTEMPT}/${MAX_ATTEMPTS}: checking ${ZIP_URL}..."
             if curl -sfIL --max-time 10 "${ZIP_URL}" > /dev/null 2>&1; then
-              echo "✅ GitHub Pages deployment successful! URL is accessible."
+              echo "GitHub Pages deployment confirmed."
               SUCCESS=1
               break
             fi
-
-            echo "Not yet accessible. Waiting 10 seconds before retry..."
+            echo "Not yet accessible. Waiting 10s..."
             sleep 10
             ATTEMPT=$((ATTEMPT + 1))
           done
 
           if [ $SUCCESS -eq 0 ]; then
-            echo "❌ ERROR: GitHub Pages deployment verification timed out after 5 minutes."
-            echo "The URL ${ZIP_URL} is still not accessible."
+            echo "::error::GitHub Pages deployment timed out after 5 minutes. URL: ${ZIP_URL}"
             exit 1
           fi
 
-          # Save URL for next steps
           echo "zip_url=${ZIP_URL}" >> $GITHUB_OUTPUT
 
       - name: Create Skilljar web package
@@ -282,22 +313,20 @@ jobs:
           DISPLAY_FULLSCREEN: ${{ matrix.display_fullscreen }}
           LESSON_ID: ${{ matrix.lesson_id }}
           LESSON_ORDER: ${{ matrix.lesson_order }}
-          NEW_WEB_PACKAGE_ID:
-            ${{ steps.create-web-package.outputs.new_web_package_id }}
+          NEW_WEB_PACKAGE_ID: ${{ steps.create-web-package.outputs.new_web_package_id }}
         run: |
           library(quarjar)
           ci_create_or_update_lesson()
         shell: Rscript {0}
 
       - name: Delete old web package
-        if:
+        if: >
           steps.create-or-update-lesson.outputs.is_new_lesson == 'false' &&
           steps.create-web-package.outputs.old_web_package_id != ''
         env:
           SKILLJAR_API_KEY: ${{ secrets.SKILLJAR_API_KEY }}
           BASE_URL: ${{ matrix.base_url }}
-          OLD_WEB_PACKAGE_ID:
-            ${{ steps.create-web-package.outputs.old_web_package_id }}
+          OLD_WEB_PACKAGE_ID: ${{ steps.create-web-package.outputs.old_web_package_id }}
         run: |
           library(quarjar)
           ci_delete_old_web_package()
@@ -311,20 +340,17 @@ jobs:
         run: |
           # Anchor to origin/main (job may be on gh-pages at this point).
           # reset --hard ensures the local branch reflects any commits pushed by
-          # earlier matrix jobs (max-parallel: 1 serializes jobs but each job
-          # checks out at the original trigger commit).
+          # earlier matrix jobs (max-parallel: 1 serializes them but each starts
+          # from the original trigger commit).
           git fetch origin main
           git checkout main
           git reset --hard origin/main
 
-          # Patch the front matter via R (no Python dependency)
           Rscript -e "library(quarjar); ci_write_lesson_id()"
 
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          # If ci_write_lesson_id() left the file unchanged (skilljar_lesson_id
-          # was already present), git diff returns 0. Nothing to do.
           if git diff --quiet "${QMD_FILE}"; then
             echo "No front matter changes — skipping commit"
             exit 0
@@ -371,12 +397,9 @@ jobs:
       - name: Cleanup old ZIP files from gh-pages
         if: always()
         run: |
-          echo "Cleaning up old ZIP files from gh-pages branch..."
-
           git fetch origin gh-pages 2>/dev/null || true
           git checkout gh-pages 2>/dev/null || exit 0
 
-          # Check if skilljar-zips directory exists
           if [ ! -d "skilljar-zips" ]; then
             echo "skilljar-zips directory not found, nothing to clean up"
             exit 0
@@ -384,22 +407,18 @@ jobs:
 
           cd skilljar-zips
 
-          # Check if any ZIP files exist
           if ! ls *.zip >/dev/null 2>&1; then
             echo "No ZIP files found, nothing to clean up"
             exit 0
           fi
 
-          # Keep only the 5 most recent ZIP files, delete the rest
           OLD_ZIPS=$(ls -t *.zip 2>/dev/null | tail -n +6)
 
           if [ -n "$OLD_ZIPS" ]; then
-            echo "Deleting old ZIP files:"
-            echo "$OLD_ZIPS"
+            echo "Deleting old ZIP files: ${OLD_ZIPS}"
             echo "$OLD_ZIPS" | xargs rm -f
-
             git add -A
-            git commit -m "Cleanup: Remove old ZIP files" || echo "Nothing to clean up"
+            git commit -m "chore: remove old skilljar ZIP files [skip ci]" || true
             git push origin gh-pages || echo "Failed to push cleanup"
           else
             echo "No old ZIP files to clean up"
@@ -411,25 +430,22 @@ jobs:
           QMD_FILE: ${{ matrix.qmd_file }}
           ZIP_FILENAME: ${{ steps.generate-zip.outputs.zip_filename }}
           PAGES_URL: ${{ steps.wait-pages.outputs.zip_url }}
-          WEB_PACKAGE_ID:
-            ${{ steps.create-web-package.outputs.new_web_package_id }}
+          WEB_PACKAGE_ID: ${{ steps.create-web-package.outputs.new_web_package_id }}
           COURSE_ID: ${{ matrix.course_id }}
           LESSON_TITLE: ${{ matrix.lesson_title }}
           LESSON_ID: ${{ steps.create-or-update-lesson.outputs.lesson_id }}
-          IS_NEW_LESSON:
-            ${{ steps.create-or-update-lesson.outputs.is_new_lesson }}
+          IS_NEW_LESSON: ${{ steps.create-or-update-lesson.outputs.is_new_lesson }}
         run: |
-          echo "### ✅ Published to Skilljar" >> $GITHUB_STEP_SUMMARY
+          echo "### Published to Skilljar" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- **Quarto File**: ${QMD_FILE}" >> $GITHUB_STEP_SUMMARY
-          echo "- **ZIP File**: ${ZIP_FILENAME}" >> $GITHUB_STEP_SUMMARY
-          echo "- **GitHub Pages URL**: ${PAGES_URL}" >> $GITHUB_STEP_SUMMARY
+          echo "- **File**: \`${QMD_FILE}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **ZIP**: \`${ZIP_FILENAME}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Pages URL**: ${PAGES_URL}" >> $GITHUB_STEP_SUMMARY
           echo "- **Web Package ID**: ${WEB_PACKAGE_ID}" >> $GITHUB_STEP_SUMMARY
           echo "- **Course ID**: ${COURSE_ID}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Lesson Title**: ${LESSON_TITLE}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Lesson**: ${LESSON_TITLE} (ID: ${LESSON_ID})" >> $GITHUB_STEP_SUMMARY
           if [ "$IS_NEW_LESSON" = "true" ]; then
-            echo "- **Action:** Created new lesson" >> $GITHUB_STEP_SUMMARY
+            echo "- **Action**: Created new lesson" >> $GITHUB_STEP_SUMMARY
           else
-            echo "- **Action:** Updated existing lesson" >> $GITHUB_STEP_SUMMARY
+            echo "- **Action**: Updated existing lesson" >> $GITHUB_STEP_SUMMARY
           fi
-          echo "- **Lesson ID**: ${LESSON_ID}" >> $GITHUB_STEP_SUMMARY
