@@ -11,6 +11,7 @@ ci_create_or_update_lesson(
   new_web_package_id = Sys.getenv("NEW_WEB_PACKAGE_ID"),
   display_fullscreen = NULL,
   lesson_order = NULL,
+  on_order_conflict = NULL,
   api_key = Sys.getenv("SKILLJAR_API_KEY"),
   base_url = Sys.getenv("BASE_URL", unset = quarjar_base_url())
 )
@@ -32,6 +33,13 @@ path only).  When \code{NULL}, resolved from the
 \item{lesson_order}{Integer, character, or \code{NULL}. Lesson order (create
 path only).  When \code{NULL}, resolved from the \code{LESSON_ORDER} env
 var; empty string triggers auto-detection.}
+
+\item{on_order_conflict}{Character or \code{NULL}. \code{"error"} or
+\code{"auto"} (create path only).  When \code{NULL}, resolved from the
+\code{ON_ORDER_CONFLICT} env var (default \code{"error"}).  Determines
+what happens when an explicitly requested lesson order is already used
+in the course: \code{"error"} aborts with diagnostics;
+\code{"auto"} warns and places the lesson at the next free order.}
 
 \item{api_key}{Character. Skilljar API key.}
 
@@ -61,6 +69,11 @@ path.}
 path only; default \code{"true"}).}
 \item{\code{LESSON_ORDER}}{Integer lesson order (create path only; empty
 string triggers auto-detection).}
+\item{\code{ON_ORDER_CONFLICT}}{\code{"error"} (default) or
+\code{"auto"} (create path only). Controls what happens when an
+explicitly requested lesson order is already used in the course:
+\code{"error"} fails with diagnostics; \code{"auto"} warns and places
+the lesson at the next free order.}
 \item{\code{SKILLJAR_API_KEY}}{Skilljar API key.}
 \item{\code{BASE_URL}}{Skilljar API base URL. When unset, falls back to
 the \code{quarjar.base_url} option, then \code{"https://api.skilljar.com"}.}

@@ -168,3 +168,22 @@ test_that("ci_write_lesson_id handles skilljar: block with no children", {
   lesson_idx <- which(grepl("^  lesson_id:", lines))
   expect_true(lesson_idx > sj_idx && lesson_idx < end_idx)
 })
+
+test_that("parse_skilljar_fm returns NULL on_order_conflict when absent", {
+  fm <- list(skilljar = list(course_id = "c1"))
+  result <- parse_skilljar_fm(fm)
+  expect_null(result$on_order_conflict)
+})
+
+test_that("parse_skilljar_fm accepts valid on_order_conflict values", {
+  fm <- list(skilljar = list(course_id = "c1", on_order_conflict = "auto"))
+  expect_equal(parse_skilljar_fm(fm)$on_order_conflict, "auto")
+
+  fm <- list(skilljar = list(course_id = "c1", on_order_conflict = "error"))
+  expect_equal(parse_skilljar_fm(fm)$on_order_conflict, "error")
+})
+
+test_that("parse_skilljar_fm aborts on invalid on_order_conflict", {
+  fm <- list(skilljar = list(course_id = "c1", on_order_conflict = "yes"))
+  expect_error(parse_skilljar_fm(fm), "on_order_conflict")
+})

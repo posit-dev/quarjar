@@ -11,6 +11,7 @@ create_lesson_with_web_package(
   description = NULL,
   display_fullscreen = NULL,
   order = NULL,
+  on_order_conflict = c("error", "auto"),
   api_key = Sys.getenv("SKILLJAR_API_KEY"),
   base_url = quarjar_base_url()
 )
@@ -30,6 +31,12 @@ and Skilljar uses its own default.}
 
 \item{order}{Integer. Optional position of the lesson in the course.
 If NULL (default), automatically uses the next available order number.}
+
+\item{on_order_conflict}{Character. What to do when an explicit
+\code{order} is already used by another lesson in the course.
+\code{"error"} (default) aborts with diagnostics identifying the
+conflicting lesson and the orders in use. \code{"auto"} warns and places
+the lesson at the next free order instead.}
 
 \item{api_key}{Character. Skilljar API key for authentication.
 Default reads from SKILLJAR_API_KEY environment variable.}
@@ -52,6 +59,15 @@ lesson <- create_lesson_with_web_package(
   course_id = "course123",
   lesson_title = "SCORM Module 1",
   web_package_id = "pkg456"
+)
+
+# Request a position, but fall back to the next free slot if taken
+lesson <- create_lesson_with_web_package(
+  course_id = "course123",
+  lesson_title = "SCORM Module 2",
+  web_package_id = "pkg789",
+  order = 30,
+  on_order_conflict = "auto"
 )
 }
 

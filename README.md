@@ -62,6 +62,7 @@ skilljar:
   course_id: "abc123"       # required — files without this are skipped
   package_title: "..."      # optional; defaults to title
   lesson_order: 3           # optional; explicit position in course (first publish only)
+  on_order_conflict: auto   # optional; "error" (default) or "auto" when lesson_order is taken
 ---
 ```
 
@@ -125,7 +126,7 @@ lesson <- create_lesson_with_web_package(
 )
 ```
 
-Lesson order is auto-detected (new lesson appended at end of course) unless you pass an explicit `order` integer. Subsequent content updates use `update_lesson()`, which replaces only the web package and leaves everything else — title, position, settings — unchanged.
+Lesson order is auto-detected (new lesson appended at end of course) unless you pass an explicit `order` integer. When an explicit `order` is already used by another lesson in the course, `create_lesson_with_web_package()` fails with diagnostics identifying the conflicting lesson; pass `on_order_conflict = "auto"` to warn and place the lesson at the next free order instead. Subsequent content updates use `update_lesson()`, which replaces only the web package and leaves everything else — title, position, settings — unchanged.
 
 ## Configuration
 
@@ -146,7 +147,9 @@ skilljar:
 ---
 ```
 
-If omitted, the workflow auto-detects the next available order, same as the R functions.
+If omitted, the workflow auto-detects the next available order (following Skilljar's convention of spacing orders by 10), same as the R functions.
+
+If the requested `lesson_order` is already used by another lesson in the course, the publish fails with an error identifying the conflicting lesson and the orders in use. To place the lesson at the next free order instead, add `on_order_conflict: auto` to the `skilljar:` front matter block.
 
 ### Updating a lesson preserves its order
 

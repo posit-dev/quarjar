@@ -1,6 +1,6 @@
 Package: quarjar
 Title: Publish Quarto Content to Skilljar
-Version: 0.2.2
+Version: 0.2.3
 Authors@R:
     person("François Michonneau", email = "francois.michonneau@posit.co", role = c("aut", "cre"))
 Description: Tools for publishing Quarto-rendered HTML content to Skilljar lessons via the
@@ -9,7 +9,6 @@ Description: Tools for publishing Quarto-rendered HTML content to Skilljar lesso
 License: MIT + file LICENSE
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.3.3
 Depends:
     R (>= 4.1.0)
 Imports:
@@ -24,3 +23,4 @@ Imports:
 Suggests:
     testthat (>= 3.0.0)
 Config/testthat/edition: 3
+Config/roxygen2/version: 8.1.0

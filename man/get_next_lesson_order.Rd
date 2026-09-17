@@ -25,6 +25,11 @@ Integer. The next available order number.
 \description{
 Finds the next available order number for a new lesson in a course.
 }
+\details{
+Skilljar's dashboard spaces lesson orders in increments of 10, so this
+function follows the same convention: it returns the highest order
+currently in use plus 10. For an empty course it returns 0.
+}
 \examples{
 \dontrun{
 next_order <- get_next_lesson_order(

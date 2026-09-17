@@ -84,6 +84,8 @@ This file provides context for AI assistants (like Claude) working on the quarja
 5. **Automatic Order Detection**
    - `create_lesson_with_content()` auto-detects next lesson position
    - Prevents "order already exists" errors
+   - Auto-detection returns `max(order) + 10`, matching Skilljar's convention of spacing orders in increments of 10
+   - `create_lesson_with_web_package()` accepts an explicit `order` with an `on_order_conflict` policy: `"error"` (default) aborts with diagnostics; `"auto"` warns and places the lesson at the next free order
 
 6. **CLI Package for Messages**
    - Uses `cli::cli_alert_success()` instead of UTF-8 characters
@@ -103,8 +105,8 @@ This file provides context for AI assistants (like Claude) working on the quarja
 9. **GitHub Actions Automation**
    - Complete CI/CD pipeline via `inst/workflows/publish-quarto-to-skilljar.yml`
    - End-to-end: Quarto render → ZIP → GitHub Pages → Skilljar web package → lesson
-   - **Create path** (first publish): creates lesson, commits `skilljar_lesson_id` directly to `main`
-   - **Update path** (subsequent pushes): when `skilljar_lesson_id` is in front matter, PATCHes the existing lesson with a new web package and deletes the old one
+   - **Create path** (first publish): creates lesson, commits `skilljar.lesson_id` directly to `main`
+   - **Update path** (subsequent pushes): when `skilljar.lesson_id` is in front matter, PATCHes the existing lesson with a new web package and deletes the old one
    - Timestamped ZIP filenames for version management
    - Stores ZIPs in `skilljar-zips/` subdirectory (coexists with pkgdown sites, etc.)
    - Automatic cleanup (keeps 5 most recent ZIPs in subdirectory)
@@ -278,17 +280,22 @@ The automated workflow (`inst/workflows/publish-quarto-to-skilljar.yml`) impleme
 4. **Verify** - Actively checks URL accessibility with retry logic
 5. **Create web package** - Makes Skilljar web package from public URL; polls until `READY`
 6. **Create lesson** - Creates WEB_PACKAGE lesson in specified course
-7. **Direct commit writeback** - Commits `skilljar_lesson_id` directly to `main` (tagged `[skip ci]`)
+7. **Direct commit writeback** - Commits `skilljar.lesson_id` directly to `main` (tagged `[skip ci]`)
 
-**Pipeline Steps (update path — subsequent pushes, `skilljar_lesson_id` present):**
+**Pipeline Steps (update path — subsequent pushes, `skilljar.lesson_id` present):**
 1–5. Same as above
 6. **Update lesson** - PATCHes existing lesson with new `content_web_package_id`
 7. **Delete old web package** - Removes the replaced web package (non-fatal on failure)
 
 **Key Features:**
-- **Push-only trigger**: Runs on `push` to `main` for changed `.qmd` files; no `workflow_dispatch`
-- **Matrix fan-out**: One `render-and-publish` job per changed `.qmd` file; `fail-fast: false` so one failure doesn't cancel others
-- **Front matter routing**: Course ID and title read from `.qmd` YAML front matter; `skilljar_lesson_id` presence determines create vs. update path
+- **Push-only trigger**: Runs on `push` to `main` when a changed path matches `**/*.qmd`, `**/_quarto-skilljar.yml`, or `**/publish-quarto-to-skilljar.yml`; no `workflow_dispatch`
+- **Self-trigger guard**: The `detect` job is skipped entirely when `github.actor == 'github-actions[bot]'`, so the lesson-ID writeback commit does not loop
+- **Two file-selection modes** (in the `detect` job):
+  - **Normal push**: `tj-actions/changed-files` collects only the changed `**/*.qmd` files
+  - **Config-file push** (`_quarto-skilljar.yml` or the workflow file changed): per-file detection is skipped and **all** `**/content.qmd` files are globbed and republished, since a config change can affect any lesson (convention: one `content.qmd` per lesson directory)
+- **Front-matter filter**: Each candidate is published only if it has valid YAML front matter AND a non-empty nested `skilljar.course_id`; otherwise it is silently skipped
+- **Matrix fan-out**: One `render-and-publish` job per surviving file; `fail-fast: false` so one failure doesn't cancel others
+- **Front matter routing**: `course_id`, `title`, and other fields read from the nested `skilljar:` block; `skilljar.lesson_id` presence determines create vs. update path
 - **Subdirectory isolation**: Stores ZIPs in `skilljar-zips/` subdirectory, coexists with other GitHub Pages content (pkgdown, etc.)
 - **Timestamped filenames**: Unique names prevent conflicts, enable versioning
 - **Automatic cleanup**: Keeps only 5 most recent ZIP files in subdirectory
@@ -296,19 +303,24 @@ The automated workflow (`inst/workflows/publish-quarto-to-skilljar.yml`) impleme
 - **URL verification**: Uses curl to actively check accessibility before proceeding
 - **Non-destructive**: Uses regular push (not `--force`), preserves other gh-pages content
 - **Serialized jobs**: `max-parallel: 1` prevents concurrent matrix jobs from conflicting on both `gh-pages` and `main`
-- **Direct writeback**: New lessons commit `skilljar_lesson_id` directly to `main`; `git fetch` + `git reset --hard origin/main` before committing ensures correctness when multiple lessons are published in one push
+- **Direct writeback**: New lessons commit `skilljar.lesson_id` directly to `main`; `git fetch` + `git reset --hard origin/main` before committing ensures correctness when multiple lessons are published in one push. A follow-up step re-parses the front matter and fails the job if `skilljar.lesson_id` is absent after writeback (guards against silently creating a duplicate lesson on the next run)
 - **R package caching**: `actions/cache` keyed on OS + R version + workflow file hash; avoids reinstalling packages on every run
 
-**Front matter fields:**
+**Front matter fields (nested `skilljar:` block — flat `skilljar_*` keys are NOT supported):**
 ```yaml
 ---
-title: "My Lesson Title"          # used as lesson title
-skilljar_course_id: "abc123"      # required — files without this are silently skipped
-skilljar_package_title: "..."     # optional; defaults to title
-skilljar_lesson_order: 3          # optional; explicit position in course (create only)
-skilljar_lesson_id: "xyz789"      # written back directly to main after first publish; triggers update path
+title: "My Lesson Title"            # used as lesson title
+skilljar:
+  course_id: "abc123"               # required — files without this are silently skipped
+  package_title: "..."              # optional; defaults to title
+  lesson_order: 3                   # optional; explicit position in course (create only)
+  on_order_conflict: auto           # optional; "error" (default) or "auto" when lesson_order is taken (create only)
+  lesson_id: "xyz789"               # written back directly to main after first publish; triggers update path
+  display_fullscreen: true          # optional; default true
 ---
 ```
+
+**Important:** The `detect` job's `parse_qmd` reads only the nested `skilljar:` block. A file with flat `skilljar_*` keys produces an empty `course_id` and is silently skipped (the R layer aborts with a migration message if such a file reaches it another way).
 
 ### Installation Methods
 
@@ -411,11 +423,14 @@ Key resources:
 9. **Timestamped ZIPs** enable version tracking and prevent conflicts on GitHub Pages
 10. **URL verification** critical - GitHub Pages deployment is asynchronous, must actively check accessibility
 11. **`update_lesson()`** sends only `content_web_package_id` in the PATCH body — no order, title, or other fields
-12. **`skilljar_lesson_id` front matter field** is the switch between create and update paths in the workflow; never set manually for new lessons
-13. **`skilljar_lesson_order` front matter field** controls lesson position on the create path only; ignored on updates
-14. **Direct writeback** — after first publish the workflow commits `skilljar_lesson_id` directly to `main`; the commit message includes `[skip ci]` so it does not re-trigger the workflow; uses `git reset --hard origin/main` before committing to handle concurrent matrix jobs and mid-run user pushes
-15. **No `workflow_dispatch`** — the workflow is push-only; re-triggering a failed run requires a trivial change to the `.qmd` file (an empty commit does **not** work — the `paths: ["**/*.qmd"]` filter requires at least one `.qmd` to be among the changed files)
-16. **No `REPO_PAT` secret required** — `pak::pak("posit-dev/quarjar")` relies on the automatically-injected `GITHUB_TOKEN` (authenticated, sufficient for public repos)
+12. **Nested `skilljar:` front matter block** — all routing fields live under a `skilljar:` key (`course_id`, `package_title`, `lesson_order`, `on_order_conflict`, `lesson_id`, `display_fullscreen`); flat `skilljar_*` keys are NOT read and cause the file to be silently skipped
+13. **`skilljar.lesson_id` front matter field** is the switch between create and update paths in the workflow; never set manually for new lessons
+14. **`skilljar.lesson_order` front matter field** controls lesson position on the create path only; ignored on updates
+15. **Config-file pushes republish everything** — when `_quarto-skilljar.yml` or the workflow file itself changes, the `detect` job skips per-file change detection and globs all `**/content.qmd` files (it can't know which lessons a config change affected)
+16. **Direct writeback** — after first publish the workflow commits `skilljar.lesson_id` directly to `main`; the commit message includes `[skip ci]` so it does not re-trigger the workflow; uses `git reset --hard origin/main` before committing to handle concurrent matrix jobs and mid-run user pushes; a post-writeback validation step fails the job if `skilljar.lesson_id` is missing
+17. **No `workflow_dispatch`** — the workflow is push-only; re-triggering a failed run requires a trivial change to a matching path (an empty commit does **not** work — the `paths` filter requires at least one `**/*.qmd`, `**/_quarto-skilljar.yml`, or `**/publish-quarto-to-skilljar.yml` among the changed files)
+18. **No `REPO_PAT` secret required** — `pak::pak("posit-dev/quarjar")` relies on the automatically-injected `GITHUB_TOKEN` (authenticated, sufficient for public repos)
+19. **`skilljar.on_order_conflict` front matter field** — controls what happens when a requested `lesson_order` is already in use: `"error"` (default) fails the job with diagnostics identifying the conflicting lesson and the orders in use; `"auto"` warns and places the lesson at the next free order (`max(order) + 10`). Equivalent workflow-level env var: `ON_ORDER_CONFLICT`. Create path only — clashes cannot occur on the update path, which never sends an order. The conflict check runs at creation time against live course state, so it also catches clashes between two new lessons in the same push (matrix jobs are serialized by `max-parallel: 1`)
 
 When modifying code:
 - Maintain sensible defaults (api_key from env, type="MODULAR", base_url via quarjar_base_url(), etc.)
