@@ -56,5 +56,10 @@ create_lesson_with_content(
 \author{
 \strong{Maintainer}: François Michonneau \email{francois.michonneau@posit.co}
 
+Authors:
+\itemize{
+  \item François Michonneau \email{francois.michonneau@posit.co}
+}
+
 }
 \keyword{internal}

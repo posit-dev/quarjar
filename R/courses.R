@@ -29,7 +29,7 @@ get_course <- function(
     rlang::abort("course_id is required")
   }
 
-  if (missing(api_key) || is.null(api_key) || api_key == "") {
+  if (is.null(api_key) || api_key == "") {
     rlang::abort("api_key is required")
   }
 
@@ -81,7 +81,7 @@ list_lessons <- function(
     rlang::abort("course_id is required")
   }
 
-  if (missing(api_key) || is.null(api_key) || api_key == "") {
+  if (is.null(api_key) || api_key == "") {
     rlang::abort("api_key is required")
   }
 
