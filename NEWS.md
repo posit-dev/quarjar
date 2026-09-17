@@ -1,3 +1,24 @@
+# quarjar 0.2.3
+
+## New features
+
+* Lesson order conflict handling: when an explicitly requested lesson order is
+  already used by another lesson in the course, quarjar no longer surfaces a
+  raw API error. `create_lesson_with_web_package()` (and the GitHub Actions
+  workflow) now fail with diagnostics identifying the conflicting lesson and
+  listing the orders in use. Set `skilljar.on_order_conflict: auto` in the
+  front matter (or `ON_ORDER_CONFLICT: auto` in the workflow environment) to
+  warn and place the lesson at the next free order instead.
+* New `get_lesson_orders()`: returns the lesson order currently in use for a
+  course (lesson ID, title, type, and order), following pagination.
+
+## Improvements
+
+* Auto-detected lesson orders now follow Skilljar's convention of spacing
+  orders in increments of 10 (`max(order) + 10`) instead of `max(order) + 1`.
+* Fixed an `api_key` validation bug that aborted functions even when the
+  `SKILLJAR_API_KEY` environment variable default was valid.
+
 # quarjar 0.2.2
 
 ## Breaking changes

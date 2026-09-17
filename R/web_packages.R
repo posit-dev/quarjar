@@ -282,7 +282,9 @@ update_lesson <- function(
   resp <- perform_request(req, "update lesson")
   lesson <- httr2::resp_body_json(resp)
 
-  cli::cli_alert_success("Lesson {lesson$id} updated with web package {content_web_package_id}")
+  cli::cli_alert_success(
+    "Lesson {lesson$id} updated with web package {content_web_package_id}"
+  )
   invisible(lesson)
 }
 
@@ -301,6 +303,11 @@ update_lesson <- function(
 #'   and Skilljar uses its own default.
 #' @param order Integer. Optional position of the lesson in the course.
 #'   If NULL (default), automatically uses the next available order number.
+#' @param on_order_conflict Character. What to do when an explicit
+#'   \code{order} is already used by another lesson in the course.
+#'   \code{"error"} (default) aborts with diagnostics identifying the
+#'   conflicting lesson and the orders in use. \code{"auto"} warns and places
+#'   the lesson at the next free order instead.
 #' @param api_key Character. Skilljar API key for authentication.
 #'   Default reads from SKILLJAR_API_KEY environment variable.
 #' @param base_url Character. Base URL for the Skilljar API.
@@ -317,6 +324,15 @@ update_lesson <- function(
 #'   lesson_title = "SCORM Module 1",
 #'   web_package_id = "pkg456"
 #' )
+#'
+#' # Request a position, but fall back to the next free slot if taken
+#' lesson <- create_lesson_with_web_package(
+#'   course_id = "course123",
+#'   lesson_title = "SCORM Module 2",
+#'   web_package_id = "pkg789",
+#'   order = 30,
+#'   on_order_conflict = "auto"
+#' )
 #' }
 #'
 #' @export
@@ -327,9 +343,12 @@ create_lesson_with_web_package <- function(
   description = NULL,
   display_fullscreen = NULL,
   order = NULL,
+  on_order_conflict = c("error", "auto"),
   api_key = Sys.getenv("SKILLJAR_API_KEY"),
   base_url = quarjar_base_url()
 ) {
+  on_order_conflict <- match.arg(on_order_conflict)
+
   # Validate inputs
   if (missing(course_id) || is.null(course_id)) {
     rlang::abort("course_id is required")
@@ -351,6 +370,18 @@ create_lesson_with_web_package <- function(
       base_url = base_url
     )
     cli::cli_alert_info("Using auto-detected order: {order}")
+  } else {
+    existing_orders <- get_lesson_orders(
+      course_id = course_id,
+      api_key = api_key,
+      base_url = base_url
+    )
+    order <- resolve_lesson_order_conflict(
+      requested = order,
+      existing = existing_orders,
+      on_conflict = on_order_conflict,
+      course_id = course_id
+    )
   }
 
   # Build lesson body

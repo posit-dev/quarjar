@@ -84,6 +84,8 @@ This file provides context for AI assistants (like Claude) working on the quarja
 5. **Automatic Order Detection**
    - `create_lesson_with_content()` auto-detects next lesson position
    - Prevents "order already exists" errors
+   - Auto-detection returns `max(order) + 10`, matching Skilljar's convention of spacing orders in increments of 10
+   - `create_lesson_with_web_package()` accepts an explicit `order` with an `on_order_conflict` policy: `"error"` (default) aborts with diagnostics; `"auto"` warns and places the lesson at the next free order
 
 6. **CLI Package for Messages**
    - Uses `cli::cli_alert_success()` instead of UTF-8 characters
@@ -312,6 +314,7 @@ skilljar:
   course_id: "abc123"               # required — files without this are silently skipped
   package_title: "..."              # optional; defaults to title
   lesson_order: 3                   # optional; explicit position in course (create only)
+  on_order_conflict: auto           # optional; "error" (default) or "auto" when lesson_order is taken (create only)
   lesson_id: "xyz789"               # written back directly to main after first publish; triggers update path
   display_fullscreen: true          # optional; default true
 ---
@@ -420,13 +423,14 @@ Key resources:
 9. **Timestamped ZIPs** enable version tracking and prevent conflicts on GitHub Pages
 10. **URL verification** critical - GitHub Pages deployment is asynchronous, must actively check accessibility
 11. **`update_lesson()`** sends only `content_web_package_id` in the PATCH body — no order, title, or other fields
-12. **Nested `skilljar:` front matter block** — all routing fields live under a `skilljar:` key (`course_id`, `package_title`, `lesson_order`, `lesson_id`, `display_fullscreen`); flat `skilljar_*` keys are NOT read and cause the file to be silently skipped
+12. **Nested `skilljar:` front matter block** — all routing fields live under a `skilljar:` key (`course_id`, `package_title`, `lesson_order`, `on_order_conflict`, `lesson_id`, `display_fullscreen`); flat `skilljar_*` keys are NOT read and cause the file to be silently skipped
 13. **`skilljar.lesson_id` front matter field** is the switch between create and update paths in the workflow; never set manually for new lessons
 14. **`skilljar.lesson_order` front matter field** controls lesson position on the create path only; ignored on updates
 15. **Config-file pushes republish everything** — when `_quarto-skilljar.yml` or the workflow file itself changes, the `detect` job skips per-file change detection and globs all `**/content.qmd` files (it can't know which lessons a config change affected)
 16. **Direct writeback** — after first publish the workflow commits `skilljar.lesson_id` directly to `main`; the commit message includes `[skip ci]` so it does not re-trigger the workflow; uses `git reset --hard origin/main` before committing to handle concurrent matrix jobs and mid-run user pushes; a post-writeback validation step fails the job if `skilljar.lesson_id` is missing
 17. **No `workflow_dispatch`** — the workflow is push-only; re-triggering a failed run requires a trivial change to a matching path (an empty commit does **not** work — the `paths` filter requires at least one `**/*.qmd`, `**/_quarto-skilljar.yml`, or `**/publish-quarto-to-skilljar.yml` among the changed files)
 18. **No `REPO_PAT` secret required** — `pak::pak("posit-dev/quarjar")` relies on the automatically-injected `GITHUB_TOKEN` (authenticated, sufficient for public repos)
+19. **`skilljar.on_order_conflict` front matter field** — controls what happens when a requested `lesson_order` is already in use: `"error"` (default) fails the job with diagnostics identifying the conflicting lesson and the orders in use; `"auto"` warns and places the lesson at the next free order (`max(order) + 10`). Equivalent workflow-level env var: `ON_ORDER_CONFLICT`. Create path only — clashes cannot occur on the update path, which never sends an order. The conflict check runs at creation time against live course state, so it also catches clashes between two new lessons in the same push (matrix jobs are serialized by `max-parallel: 1`)
 
 When modifying code:
 - Maintain sensible defaults (api_key from env, type="MODULAR", base_url via quarjar_base_url(), etc.)

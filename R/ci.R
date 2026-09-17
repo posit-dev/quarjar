@@ -25,9 +25,16 @@ parse_skilljar_fm <- function(fm) {
   sj <- fm[["skilljar"]]
 
   # Flat keys are no longer supported — abort with a migration hint.
-  flat_present <- any(c("skilljar_course_id", "skilljar_package_title",
-                        "skilljar_lesson_order", "skilljar_lesson_id",
-                        "display_fullscreen") %in% names(fm))
+  flat_present <- any(
+    c(
+      "skilljar_course_id",
+      "skilljar_package_title",
+      "skilljar_lesson_order",
+      "skilljar_lesson_id",
+      "display_fullscreen"
+    ) %in%
+      names(fm)
+  )
   if (is.null(sj) && flat_present) {
     cli::cli_abort(c(
       "This file uses the deprecated flat {.field skilljar_*} front matter format.",
@@ -38,11 +45,19 @@ parse_skilljar_fm <- function(fm) {
     ))
   }
 
-  if (is.null(sj)) return(NULL)
+  if (is.null(sj)) {
+    return(NULL)
+  }
 
   # Unknown-key detection (typo guard)
-  known_keys <- c("course_id", "package_title", "lesson_order",
-                  "lesson_id", "display_fullscreen")
+  known_keys <- c(
+    "course_id",
+    "package_title",
+    "lesson_order",
+    "lesson_id",
+    "display_fullscreen",
+    "on_order_conflict"
+  )
   unknown <- setdiff(names(sj), known_keys)
   if (length(unknown) > 0) {
     cli::cli_warn(
@@ -80,6 +95,21 @@ parse_skilljar_fm <- function(fm) {
     lesson_order <- coerced
   }
 
+  # on_order_conflict — optional, "error" (default) or "auto"
+  on_order_conflict <- sj[["on_order_conflict"]]
+  if (!is.null(on_order_conflict)) {
+    if (
+      !is.character(on_order_conflict) ||
+        length(on_order_conflict) != 1 ||
+        !on_order_conflict %in% c("error", "auto")
+    ) {
+      cli::cli_abort(
+        "{.field skilljar.on_order_conflict} must be {.val error} or
+         {.val auto}, got {.val {on_order_conflict}}."
+      )
+    }
+  }
+
   # lesson_id — optional character
   lesson_id <- as.character(rlang::`%||%`(sj[["lesson_id"]], ""))
 
@@ -97,11 +127,12 @@ parse_skilljar_fm <- function(fm) {
   }
 
   list(
-    course_id          = course_id,
-    package_title      = package_title,
-    lesson_order       = lesson_order,
-    lesson_id          = lesson_id,
-    display_fullscreen = display_fullscreen
+    course_id = course_id,
+    package_title = package_title,
+    lesson_order = lesson_order,
+    lesson_id = lesson_id,
+    display_fullscreen = display_fullscreen,
+    on_order_conflict = on_order_conflict
   )
 }
 
@@ -309,6 +340,11 @@ ci_create_web_package <- function(
 #'     path only; default \code{"true"}).}
 #'   \item{\code{LESSON_ORDER}}{Integer lesson order (create path only; empty
 #'     string triggers auto-detection).}
+#'   \item{\code{ON_ORDER_CONFLICT}}{\code{"error"} (default) or
+#'     \code{"auto"} (create path only). Controls what happens when an
+#'     explicitly requested lesson order is already used in the course:
+#'     \code{"error"} fails with diagnostics; \code{"auto"} warns and places
+#'     the lesson at the next free order.}
 #'   \item{\code{SKILLJAR_API_KEY}}{Skilljar API key.}
 #'   \item{\code{BASE_URL}}{Skilljar API base URL. When unset, falls back to
 #'     the \code{quarjar.base_url} option, then \code{"https://api.skilljar.com"}.}
@@ -325,6 +361,12 @@ ci_create_web_package <- function(
 #' @param lesson_order Integer, character, or \code{NULL}. Lesson order (create
 #'   path only).  When \code{NULL}, resolved from the \code{LESSON_ORDER} env
 #'   var; empty string triggers auto-detection.
+#' @param on_order_conflict Character or \code{NULL}. \code{"error"} or
+#'   \code{"auto"} (create path only).  When \code{NULL}, resolved from the
+#'   \code{ON_ORDER_CONFLICT} env var (default \code{"error"}).  Determines
+#'   what happens when an explicitly requested lesson order is already used
+#'   in the course: \code{"error"} aborts with diagnostics;
+#'   \code{"auto"} warns and places the lesson at the next free order.
 #' @param api_key Character. Skilljar API key.
 #' @param base_url Character. Skilljar API base URL. Defaults to the
 #'   \code{quarjar.base_url} option, falling back to
@@ -347,6 +389,7 @@ ci_create_or_update_lesson <- function(
   new_web_package_id = Sys.getenv("NEW_WEB_PACKAGE_ID"),
   display_fullscreen = NULL,
   lesson_order = NULL,
+  on_order_conflict = NULL,
   api_key = Sys.getenv("SKILLJAR_API_KEY"),
   base_url = Sys.getenv("BASE_URL", unset = quarjar_base_url())
 ) {
@@ -378,16 +421,26 @@ ci_create_or_update_lesson <- function(
       }
     }
 
+    if (is.null(on_order_conflict)) {
+      on_order_conflict <- Sys.getenv("ON_ORDER_CONFLICT")
+      if (!nchar(on_order_conflict)) {
+        on_order_conflict <- "error"
+      }
+    }
+    on_order_conflict <- match.arg(on_order_conflict, c("error", "auto"))
+
     lesson <- create_lesson_with_web_package(
       course_id = course_id,
       lesson_title = lesson_title,
       web_package_id = new_web_package_id,
       display_fullscreen = display_fullscreen,
       order = lesson_order,
+      on_order_conflict = on_order_conflict,
       api_key = api_key,
       base_url = base_url
     )
     .ci_write_output("is_new_lesson", "true")
+    .ci_write_output("lesson_order", lesson$order)
   }
 
   .ci_write_output("lesson_id", lesson$id)
@@ -498,7 +551,7 @@ ci_write_lesson_id <- function(
     rlang::abort(paste("File not found:", qmd_file))
   }
 
-  lines   <- readLines(qmd_file, warn = FALSE)
+  lines <- readLines(qmd_file, warn = FALSE)
   sep_idx <- which(grepl("^---\\s*$", lines))
 
   if (length(sep_idx) < 2) {
@@ -520,7 +573,7 @@ ci_write_lesson_id <- function(
 
   if (length(sj_line) > 0) {
     # Find the extent of the skilljar: block (contiguous indented lines after it).
-    sj_start  <- sj_line[1]
+    sj_start <- sj_line[1]
     block_end <- sj_start
     remaining <- seq_len(length(fm_lines) - sj_start) + sj_start
     for (i in remaining) {
@@ -532,9 +585,9 @@ ci_write_lesson_id <- function(
     }
 
     # Insert `  lesson_id: "..."` right after the last line of the block.
-    insert_after <- sep_idx[1] + block_end  # absolute line index
-    new_line     <- paste0('  lesson_id: "', lesson_id, '"')
-    new_lines    <- c(
+    insert_after <- sep_idx[1] + block_end # absolute line index
+    new_line <- paste0('  lesson_id: "', lesson_id, '"')
+    new_lines <- c(
       lines[seq_len(insert_after)],
       new_line,
       lines[seq(insert_after + 1L, length(lines))]

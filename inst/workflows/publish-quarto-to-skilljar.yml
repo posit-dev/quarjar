@@ -1,9 +1,9 @@
-# quarjar-workflow-version: 0.2.2
+# quarjar-workflow-version: 0.2.3
 name: Publish Quarto to Skilljar via GitHub Pages
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
     paths:
       - "**/*.qmd"
       - "**/_quarto-skilljar.yml"
@@ -92,6 +92,7 @@ jobs:
                       'base_url': 'https://api.skilljar.com',
                       'display_fullscreen': bool(sj.get('display_fullscreen', True)),
                       'lesson_order': sj.get('lesson_order', None),
+                      'on_order_conflict': str(sj.get('on_order_conflict', '')).strip(),
                       'lesson_id': str(sj.get('lesson_id', '')),
                   }
               except Exception as e:
@@ -302,7 +303,9 @@ jobs:
           DISPLAY_FULLSCREEN: ${{ matrix.display_fullscreen }}
           LESSON_ID: ${{ matrix.lesson_id }}
           LESSON_ORDER: ${{ matrix.lesson_order }}
-          NEW_WEB_PACKAGE_ID: ${{ steps.create-web-package.outputs.new_web_package_id }}
+          ON_ORDER_CONFLICT: ${{ matrix.on_order_conflict }}
+          NEW_WEB_PACKAGE_ID:
+            ${{ steps.create-web-package.outputs.new_web_package_id }}
         run: |
           library(quarjar)
           ci_create_or_update_lesson()
@@ -315,7 +318,8 @@ jobs:
         env:
           SKILLJAR_API_KEY: ${{ secrets.SKILLJAR_API_KEY }}
           BASE_URL: ${{ matrix.base_url }}
-          OLD_WEB_PACKAGE_ID: ${{ steps.create-web-package.outputs.old_web_package_id }}
+          OLD_WEB_PACKAGE_ID:
+            ${{ steps.create-web-package.outputs.old_web_package_id }}
         run: |
           library(quarjar)
           ci_delete_old_web_package()
@@ -419,11 +423,15 @@ jobs:
           QMD_FILE: ${{ matrix.qmd_file }}
           ZIP_FILENAME: ${{ steps.generate-zip.outputs.zip_filename }}
           PAGES_URL: ${{ steps.wait-pages.outputs.zip_url }}
-          WEB_PACKAGE_ID: ${{ steps.create-web-package.outputs.new_web_package_id }}
+          WEB_PACKAGE_ID:
+            ${{ steps.create-web-package.outputs.new_web_package_id }}
           COURSE_ID: ${{ matrix.course_id }}
           LESSON_TITLE: ${{ matrix.lesson_title }}
           LESSON_ID: ${{ steps.create-or-update-lesson.outputs.lesson_id }}
-          IS_NEW_LESSON: ${{ steps.create-or-update-lesson.outputs.is_new_lesson }}
+          LESSON_ORDER:
+            ${{ steps.create-or-update-lesson.outputs.lesson_order }}
+          IS_NEW_LESSON:
+            ${{ steps.create-or-update-lesson.outputs.is_new_lesson }}
         run: |
           echo "### Published to Skilljar" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
@@ -433,6 +441,9 @@ jobs:
           echo "- **Web Package ID**: ${WEB_PACKAGE_ID}" >> $GITHUB_STEP_SUMMARY
           echo "- **Course ID**: ${COURSE_ID}" >> $GITHUB_STEP_SUMMARY
           echo "- **Lesson**: ${LESSON_TITLE} (ID: ${LESSON_ID})" >> $GITHUB_STEP_SUMMARY
+          if [ -n "$LESSON_ORDER" ]; then
+            echo "- **Lesson order**: ${LESSON_ORDER}" >> $GITHUB_STEP_SUMMARY
+          fi
           if [ "$IS_NEW_LESSON" = "true" ]; then
             echo "- **Action**: Created new lesson" >> $GITHUB_STEP_SUMMARY
           else
